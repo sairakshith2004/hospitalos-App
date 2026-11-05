@@ -1,0 +1,36 @@
+# HospitalOS Mobile local services. Independent of the reference HospitalOS project:
+# own project name, network, volume, container, ports and credentials
+# (docs/MOBILE-ARCHITECTURE.md §7). Always run with: docker compose -p hospitalos-mobile …
+name: hospitalos-mobile
+
+services:
+  db:
+    image: postgres:17.11-bookworm@sha256:665dc7b37ac52a17e298511414c21d23ffa4e6a6ef6225b3e5d59c7afb35e994
+    container_name: hospitalos-mobile-db
+    # Never restarted automatically: the database runs only when started on purpose.
+    restart: 'no'
+    ports:
+      - '127.0.0.1:5433:5432' # localhost only, never exposed to the network
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env (npm run env:init)}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env (npm run env:init)}
+      # Only the default database at first start. Project databases and roles are created by
+      # `npm run db:init` (docker/postgres/init/01-roles-and-databases.sql), not automatically.
+      POSTGRES_DB: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - default
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d postgres']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pgdata:
+    name: hospitalos-mobile-pgdata
+
+networks:
+  default:
+    name: hospitalos-mobile-network

@@ -1,0 +1,7 @@
+# The mobile app has its own Prettier setup (apps/mobile/.prettierrc)
+apps/mobile
+docs
+node_modules
+coverage
+dist
+package-lock.json

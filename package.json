@@ -1,0 +1,44 @@
+{
+  "name": "hospitalos-app",
+  "private": true,
+  "description": "HospitalOS Mobile monorepo: independent API and shared contracts. The mobile app joins the workspace in phase 1.2.",
+  "workspaces": [
+    "apps/api",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev:api": "npm run dev -w @hospitalos/api",
+    "start:api": "npm run start -w @hospitalos/api",
+    "build:api": "npm run build -w @hospitalos/api",
+    "typecheck": "npm run typecheck --workspaces",
+    "lint": "npm run lint --workspaces",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "npm test --workspaces",
+    "test:api": "npm test -w @hospitalos/api",
+    "test:db": "npm run test:db -w @hospitalos/api",
+    "env:init": "node scripts/env-init.mjs",
+    "iso:check": "node scripts/iso-check.mjs",
+    "db:up": "docker compose -p hospitalos-mobile up -d --wait db",
+    "db:down": "docker compose -p hospitalos-mobile down",
+    "db:init": "sh scripts/db-init.sh",
+    "db:migrate": "npm run db:migrate -w @hospitalos/api",
+    "db:migrate:test": "npm run db:migrate:test -w @hospitalos/api",
+    "db:env:check": "npm run db:env:check -w @hospitalos/api",
+    "secrets:check": "node scripts/secrets-check.mjs",
+    "audit": "npm audit --audit-level=high",
+    "mobile:check": "npm --prefix apps/mobile run check",
+    "check": "npm run secrets:check && npm run typecheck && npm run lint && npm run format:check && npm test"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "eslint": "10.13.0",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.0",
+    "vitest": "4.1.12"
+  }
+}
