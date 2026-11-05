@@ -36,26 +36,27 @@ Requirements: Node.js 24 (`.nvmrc`), npm 11, Docker Desktop.
 
 **Mobile app:** see [`apps/mobile/README.md`](apps/mobile/README.md).
 
-**API and database** (phase 1.1). Each step below is a separate, owner-approved action the first
-time it is run:
+**API and database** (phase 1.1). First-time setup, in order:
 
-| Step | Command                                            | What it does                                                                  |
-| ---- | -------------------------------------------------- | ----------------------------------------------------------------------------- |
-| 1    | `npm install`                                      | Installs the API and contracts dependencies (root lockfile)                   |
-| 2    | `npm run env:init`                                 | Writes `.env` and `apps/api/.env` with random secrets (git-ignored, mode 600) |
-| 3    | `npm run iso:check`, then `npm run db:up`          | Checks names and ports, then starts our PostgreSQL container                  |
-| 4    | `npm run db:init`                                  | Creates `hospitalos_dev`, `hospitalos_test`, `hos_owner` and `hos_app`        |
-| 5    | `npm run db:migrate` and `npm run db:migrate:test` | Applies migrations as `hos_owner`                                             |
-| 6    | `npm run api:dev`                                  | Starts the API on `http://127.0.0.1:4000` (`/v1/health`, `/v1/ready`)         |
+| Step | Command                                            | What it does                                                            |
+| ---- | -------------------------------------------------- | ----------------------------------------------------------------------- |
+| 1    | `npm ci`                                           | Installs the API and contracts dependencies (root lockfile)             |
+| 2    | `npm run env:init`                                 | Writes the root `.env` with random secrets (git-ignored, mode 600)      |
+| 3    | `npm run iso:check`, then `npm run db:up`          | Checks names and ports, then starts our PostgreSQL container            |
+| 4    | `npm run db:init`                                  | Creates `hospitalos_dev`, `hospitalos_test`, `hos_owner` and `hos_app`  |
+| 5    | `npm run db:migrate` and `npm run db:migrate:test` | Applies migrations as `hos_owner`                                       |
+| 6    | `npm run dev:api`                                  | Starts the API on `http://127.0.0.1:4000` (`/api/health`, `/api/ready`) |
 
 Checks: `npm run check` (secrets, types, lint, format, unit tests) and `npm run test:db`.
+Stop the database with `npm run db:down` (keeps the data volume). CI runs the same steps on every
+push and pull request (`.github/workflows/ci.yml`) with throwaway credentials.
 
 ### Isolation from the reference project
 
 |                   | Reference                                      | HospitalOS Mobile                                            |
 | ----------------- | ---------------------------------------------- | ------------------------------------------------------------ |
 | Compose project   | `hospitalos`                                   | `hospitalos-mobile`                                          |
-| Network / volume  | `hospitalos_default` / `hospitalos_hms_pgdata` | `hospitalos-mobile_default` / `hospitalos-mobile_pgdata`     |
+| Network / volume  | `hospitalos_default` / `hospitalos_hms_pgdata` | `hospitalos-mobile-network` / `hospitalos-mobile-pgdata`     |
 | PostgreSQL port   | 5432                                           | 5433                                                         |
 | API port          | 3000                                           | 4000                                                         |
 | Databases / users | `hms_dev`, `hms_test` / `hms_owner`, `hms_app` | `hospitalos_dev`, `hospitalos_test` / `hos_owner`, `hos_app` |
@@ -64,7 +65,7 @@ The API refuses to start against any database or user outside this list.
 
 ## Secrets
 
-Secrets live only in the git-ignored `.env` and `apps/api/.env`, generated locally. They never
+Secrets live only in the git-ignored root `.env`, generated locally. They never
 appear in code, documentation, logs, screenshots or the app bundle. `npm run secrets:check` fails
 if one is found in any file Git tracks or would track.
 

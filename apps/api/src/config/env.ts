@@ -136,9 +136,7 @@ export function loadConfig(raw: RawEnv): ApiConfig {
 
   const database = databaseNameOf(config.DATABASE_URL) ?? '';
   if (!config.DATABASE_ALLOWED_NAMES.includes(database)) {
-    problems.push(
-      'DATABASE_URL: its database is not listed in DATABASE_ALLOWED_NAMES',
-    );
+    problems.push('DATABASE_URL: its database is not listed in DATABASE_ALLOWED_NAMES');
   }
   if (database === 'hospitalos_test' && config.NODE_ENV !== 'test') {
     problems.push('DATABASE_URL: the test database may only be used with NODE_ENV=test');
@@ -186,7 +184,9 @@ export function loadMigrationUrl(target: MigrationTarget, raw: RawEnv): string {
     );
   }
   if (databaseNameOf(parsed.data) !== database) {
-    throw new ConfigError(`Invalid migration configuration:\n${setting}: must point at ${database}`);
+    throw new ConfigError(
+      `Invalid migration configuration:\n${setting}: must point at ${database}`,
+    );
   }
   return parsed.data;
 }

@@ -25,9 +25,14 @@ export async function checkDatabaseReadiness(
   const recorded = rows.map((row) => recordedRow.parse(row));
   const same =
     recorded.length === expected.length &&
-    recorded.every(
-      (row, i) => row.name === expected[i]?.name && row.checksum === expected[i]?.checksum,
-    );
+    recorded.every((row, i) => {
+      const migration = expected[i];
+      return (
+        migration !== undefined &&
+        row.name === migration.name &&
+        row.checksum === migration.checksum
+      );
+    });
   if (!same) {
     throw new MigrationStateError(
       `expected migrations [${expected.map((m) => m.name).join(', ')}], found [${recorded

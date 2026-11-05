@@ -38,7 +38,36 @@ describe('migrations on hospitalos_test', () => {
     await expect(runMigrations(owner, loadMigrations(dir))).rejects.toBeInstanceOf(MigrationError);
   });
 
-  it('keep the migration history away from the application user', async () => {
-    await expect(app.query('select * from schema_migrations')).rejects.toThrow(/permission denied/);
+  it('record exactly one migration, with the shipped checksum', async () => {
+    const shipped = loadMigrations(MIGRATIONS);
+    const { rows } = await owner.query<{ name: string; checksum: string }>(
+      'select name, checksum from schema_migrations order by name',
+    );
+    expect(rows).toEqual(shipped.map(({ name, checksum }) => ({ name, checksum })));
+    expect(rows).toHaveLength(1);
+  });
+
+  it('let the application user read the migration history but never change it', async () => {
+    const { rows } = await app.query('select name from schema_migrations');
+    expect(rows.length).toBeGreaterThan(0);
+    for (const statement of [
+      "insert into schema_migrations (name, checksum) values ('9999_probe.sql', 'x')",
+      "update schema_migrations set checksum = 'x'",
+      'delete from schema_migrations',
+      'truncate schema_migrations',
+      'drop table schema_migrations',
+      'alter table schema_migrations add column probe int',
+    ]) {
+      await expect(app.query(statement), statement).rejects.toThrow(
+        /permission denied|must be owner/,
+      );
+    }
+  });
+
+  it('set the schema metadata comment', async () => {
+    const { rows } = await owner.query<{ comment: string | null }>(
+      "select obj_description('public'::regnamespace, 'pg_namespace') as comment",
+    );
+    expect(rows[0]?.comment).toMatch(/^HospitalOS Mobile application schema/);
   });
 });

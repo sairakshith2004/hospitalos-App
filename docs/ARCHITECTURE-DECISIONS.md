@@ -25,6 +25,8 @@ Status values: **Approved** (owner approved), **Proposed** (awaiting approval), 
 | AD-M-012 | **Migrations:** forward-only SQL files applied by our own runner with SHA-256 checksums and an advisory lock; drizzle-kit only generates SQL for review and never connects to a database | Approved with the phase 1.1 plan | `apps/api/README.md` |
 | AD-M-013 | **Database identity guard:** the API refuses any database outside `DATABASE_ALLOWED_NAMES` (only `hospitalos_*` names accepted), any user other than `hos_app`, and any over-privileged user; migrations do the same with `hos_owner` | Approved with the phase 1.1 plan | Architecture §7 |
 | AD-M-014 | Local PostgreSQL container is never restarted automatically (`restart: 'no'`) and binds only to `127.0.0.1:5433`; project databases and roles are created by a separate, approved script, not at container start | Approved with the phase 1.1 plan | `docker-compose.yml` |
+| AD-M-015 | **Readiness reads migration state:** `hos_app` gets SELECT (only) on `schema_migrations`, granted by the migration runner, so `/api/ready` can compare the recorded migrations with the build | Proposed in phase 1.1, awaiting owner review | `apps/api/README.md` |
+| AD-M-016 | **CI is blocking for the API and report-only for two mobile checks:** Expo Doctor (KI-9) and the mobile dependency audit (KI-12) do not fail CI until the owner approves the mobile dependency upgrade. Database credentials in CI are random per run, never repository secrets | Proposed in phase 1.1, awaiting owner review | `.github/workflows/ci.yml` |
 
 ## Deliberate differences from the reference
 

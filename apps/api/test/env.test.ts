@@ -6,7 +6,8 @@ import { describe, expect, it } from 'vitest';
 
 import { ConfigError, loadConfig, loadMigrationUrl } from '../src/config/env';
 
-const SENTINEL = 'S3cr3tValueThatMustNeverAppear';
+// Long enough to pass the 32-character password rule; never a real credential.
+const SENTINEL = 'S3cr3tValueThatMustNeverAppearInAnyLogOrError';
 const VALID = {
   DATABASE_URL: `postgres://hos_app:${SENTINEL}@127.0.0.1:5433/hospitalos_dev`,
 };
@@ -30,7 +31,7 @@ describe('loadConfig', () => {
       PORT: 4000,
       LOG_LEVEL: 'info',
       DATABASE_POOL_MAX: 10,
-      DATABASE_ALLOWED_NAMES: ['hospitalos_dev', 'hospitalos_test'],
+      DATABASE_ALLOWED_NAMES: ['hospitalos_dev'],
     });
   });
 
@@ -51,6 +52,30 @@ describe('loadConfig', () => {
     const error = errorOf(() => loadConfig({ ...VALID, PORT: 'not-a-port' }));
     expect(error.message).toContain('PORT');
     expect(error.message).not.toContain(SENTINEL);
+  });
+
+  it('refuses short database passwords without printing them', () => {
+    const short = 'short1234';
+    const error = errorOf(() =>
+      loadConfig({ DATABASE_URL: `postgres://hos_app:${short}@127.0.0.1:5433/hospitalos_dev` }),
+    );
+    expect(error.message).toContain('at least 32 characters');
+    expect(error.message).not.toContain(short);
+  });
+
+  it('refuses reference (hms_*) databases', () => {
+    const error = errorOf(() =>
+      loadConfig({ DATABASE_URL: `postgres://hos_app:${SENTINEL}@127.0.0.1:5433/hms_dev` }),
+    );
+    expect(error.message).toContain('hms_');
+    expect(error.message).not.toContain(SENTINEL);
+  });
+
+  it('allows the test database only with NODE_ENV=test', () => {
+    const url = `postgres://hos_app:${SENTINEL}@127.0.0.1:5433/hospitalos_test`;
+    const allow = { DATABASE_URL: url, DATABASE_ALLOWED_NAMES: 'hospitalos_test' };
+    expect(errorOf(() => loadConfig(allow)).message).toContain('NODE_ENV=test');
+    expect(loadConfig({ ...allow, NODE_ENV: 'test' }).DATABASE_URL).toBe(url);
   });
 
   it('refuses non-postgres URLs', () => {

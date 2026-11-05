@@ -1,3 +1,4 @@
+import pg from 'pg';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { DatabaseIdentityError, verifyDatabaseIdentity } from '../../src/db/guards';
@@ -50,5 +51,13 @@ describe('database identity guard on hospitalos_test', () => {
     await expect(app.query('create table hos_app_probe (id int)')).rejects.toThrow(
       /permission denied/,
     );
+  });
+
+  it('stops hos_app from connecting to the maintenance database', async () => {
+    const url = new URL(process.env.TEST_DATABASE_URL ?? '');
+    url.pathname = '/postgres';
+    const client = new pg.Client({ connectionString: url.toString() });
+    await expect(client.connect()).rejects.toThrow(/permission denied/);
+    await client.end().catch(() => undefined);
   });
 });

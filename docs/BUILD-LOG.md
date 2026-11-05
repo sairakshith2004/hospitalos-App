@@ -82,3 +82,42 @@ upstream so it can't push to `main` by mistake.
   four parameters).
 - Checks: `npm run check` passes (secrets 179 files, typecheck, lint, Prettier, contracts 10/10,
   API 32/32). Mobile: typecheck, ESLint, Prettier, Jest 94/94 pass; Expo Doctor 20/21 (KI-9).
+
+**Phase 1.1 completion (2026-11-05, one session, owner-authorized local steps).**
+
+- Starting state verified: branch `phase/1.1-backend-foundation`, clean and in sync with its new
+  remote branch (pushed at the owner's request as `597a24b`); Phase 1.0 `f7468ef` is in `origin/main`
+  through PR #3. Ports 4000 and 5433 free; Docker inventory identical to the audit above.
+- Names superseding the step 1 notes: probes are `/api/health` and `/api/ready`; network
+  `hospitalos-mobile-network`; volume `hospitalos-mobile-pgdata`; init SQL
+  `docker/postgres/init/01-roles-and-databases.sql`.
+- Fixed: one ESLint error (`readiness.ts`) and three unformatted files. Four configuration tests
+  used fixtures shorter than the 32-character password rule and expected `hospitalos_test` in the
+  default allow-list; fixtures now satisfy the rule and the expectation matches the stricter code.
+  The migration database test wrongly expected `hos_app` to be denied any read of
+  `schema_migrations`; it now checks read-only access (readiness needs the read).
+- Added: schema comment in `0000_extensions.sql` (not yet applied anywhere when changed);
+  `revoke connect on database postgres from public`; tests for short passwords, `hms_*` refusal and
+  test-database use; database tests for readiness, least privilege, migration record, schema
+  metadata, maintenance-database refusal and the real server process (probes, SIGTERM exit 0, no
+  password in logs, refusal as owner); `.github/workflows/ci.yml`.
+- Run, in order: `npm run env:init` (root `.env`, mode 600, values never printed);
+  `npm run db:env:check`; `npm run iso:check`; `npm run db:up` (PostgreSQL 17.11, healthy,
+  `127.0.0.1:5433`); `npm run db:init` twice (second run changed nothing);
+  `npm run db:migrate` and `db:migrate:test` twice (first applied `0000_extensions.sql`, second
+  skipped it); live API on `127.0.0.1:4000`: health 200, ready 200, unknown route 404 envelope,
+  200 kB body 413 `PAYLOAD_TOO_LARGE`, bad JSON 400 `INVALID_JSON`, SIGTERM exit 0 with
+  "shutdown complete", no password in the log.
+- Database state: `hos_owner` and `hos_app` with no superuser, create-role, create-database,
+  replication or bypass-RLS rights; `hos_app` has CONNECT on the two project databases only, USAGE
+  but not CREATE on `public`, SELECT only on `schema_migrations`. Each database has one migration
+  record (same checksum), extensions `btree_gist 1.7`, `citext 1.6`, `pg_trgm 1.6`, `pgcrypto 1.3`,
+  and no table other than `schema_migrations`.
+- Docker after: three new resources only (`hospitalos-mobile-db`, `hospitalos-mobile-network`,
+  `hospitalos-mobile-pgdata`) plus the pinned image. The reference containers, network and volume
+  have the same IDs, start times and zero restarts as before.
+- Checks: root `npm ci` (lockfiles unchanged by checksum); `npm run check` passes (secrets 184 files,
+  typecheck, lint, Prettier, contracts 10/10, API 38/38); `npm run test:db` 19/19; root audit 0 high
+  or critical (13 moderate, KI-10). Mobile unchanged (no file under `apps/mobile` modified):
+  typecheck, ESLint, Prettier, Jest 94/94; Expo Doctor 20/21 (KI-9); mobile audit 5 high (KI-12).
+- Not run: the CI workflow itself (runs on the next push); Android emulator or device (KI-1).

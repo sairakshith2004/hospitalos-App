@@ -340,8 +340,8 @@ the other's data. Every name and port below was compared with the reference's
 | Resource | Reference (`hospital-management-system`) | This product (`hospitalos-App`) |
 |---|---|---|
 | Compose project name | `hospitalos` | `hospitalos-mobile` (set explicitly with `name:`) |
-| Compose network | `hospitalos_default` | `hospitalos-mobile_default` |
-| PostgreSQL volume | `hospitalos_hms_pgdata` | `hospitalos-mobile_pgdata` |
+| Compose network | `hospitalos_default` | `hospitalos-mobile-network` |
+| PostgreSQL volume | `hospitalos_hms_pgdata` | `hospitalos-mobile-pgdata` |
 | PostgreSQL host port | `127.0.0.1:5432` | `127.0.0.1:5433` |
 | Databases | `hms_dev`, `hms_test` | `hospitalos_dev`, `hospitalos_test` |
 | Database users | `hms_owner`, `hms_app` (+ Docker superuser from its `.env`) | `hos_owner`, `hos_app` (+ our own Docker superuser) |

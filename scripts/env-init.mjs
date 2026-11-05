@@ -12,7 +12,9 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const target = join(root, '.env');
 
 if (existsSync(target)) {
-  console.error('.env already exists; not overwriting it. Inspect it, then remove it if you mean to.');
+  console.error(
+    '.env already exists; not overwriting it. Inspect it, then remove it if you mean to.',
+  );
   process.exit(1);
 }
 try {

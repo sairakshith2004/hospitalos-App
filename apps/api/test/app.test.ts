@@ -132,7 +132,9 @@ describe('rate limiting foundation', () => {
 describe('production-safe errors', () => {
   it('never returns stack traces, SQL or internal messages', async () => {
     const { app } = appWith(() =>
-      Promise.reject(new Error('select * from schema_migrations failed at /src/db/readiness.ts:12')),
+      Promise.reject(
+        new Error('select * from schema_migrations failed at /src/db/readiness.ts:12'),
+      ),
     );
     const res = await request(app).get('/api/ready');
     const text = JSON.stringify(res.body);

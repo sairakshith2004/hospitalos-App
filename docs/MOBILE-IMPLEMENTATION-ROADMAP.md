@@ -145,7 +145,7 @@ unlock, offline writes ([scope §7](MOBILE-PRODUCT-SCOPE.md#7-potential-future-e
 | Planning documents (this set) | Revised draft, awaiting owner review |
 | Phase 1.0 | **Implemented on branch `phase/1.0-mobile-alignment`, uncommitted, awaiting owner review** (2026-11-05). Automated checks pass; Android emulator and physical-device checks **not run** (no Android SDK on this Mac): see U1 |
 | Phase 1.0 merge | Merged into `main` on GitHub (PR #3, merge commit `c7e8910`, 2026-11-05) |
-| Phase 1.1 | **In progress** on branch `phase/1.1-backend-foundation`: source files written (step 1); approval gates 1–6 (dependencies, secrets, Docker, databases and users, migration 0000, CI workflow) not yet run |
+| Phase 1.1 | **Complete locally, awaiting owner review** (2026-11-05) on branch `phase/1.1-backend-foundation`: API, isolated PostgreSQL 17 container, `hospitalos_dev` and `hospitalos_test`, `hos_owner` and `hos_app`, migration 0000 in both, database tests and CI workflow. Final changes uncommitted. See the build log |
 | Phases 1.2 to 1.12, R2 to R9 | Planned |
 
 ## 6. Packages expected to need approval

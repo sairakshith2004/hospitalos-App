@@ -75,6 +75,9 @@ begin
 end
 $$;
 
+-- The maintenance database is for the container superuser only.
+revoke connect on database postgres from public;
+
 revoke all on database hospitalos_dev from public;
 revoke all on database hospitalos_test from public;
 grant connect on database hospitalos_dev to hos_app;
