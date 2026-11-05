@@ -7,7 +7,7 @@ const TABS: readonly { name: string; title: string; icon: IconName }[] = [
   { name: 'home', title: 'Home', icon: 'home' },
   { name: 'queue', title: 'Work Queue', icon: 'queue' },
   { name: 'search', title: 'Search', icon: 'search' },
-  { name: 'notifications', title: 'Notifications', icon: 'notifications' },
+  { name: 'inbox', title: 'Inbox', icon: 'inbox' },
   { name: 'profile', title: 'Profile', icon: 'profile' },
 ];
 

@@ -61,7 +61,7 @@ describe('protected area', () => {
 
   it('shows the five conceptual tabs', async () => {
     await openDemoWorkspace();
-    for (const name of ['Home', 'Work Queue', 'Search', 'Notifications', 'Profile']) {
+    for (const name of ['Home', 'Work Queue', 'Search', 'Inbox', 'Profile']) {
       expect(getTab(name)).toBeTruthy();
     }
     fireEvent.press(getTab('Work Queue'));
@@ -92,6 +92,23 @@ describe('protected area', () => {
   });
 });
 
+describe('F0-4 inbox', () => {
+  it('replaces Notifications and shows only the labelled placeholder', async () => {
+    const result = await openDemoWorkspace();
+    expect(screen.queryByText('Notifications')).toBeNull();
+    fireEvent.press(getTab('Inbox'));
+    expect(await screen.findByText('Your inbox arrives in Release 7')).toBeTruthy();
+    expect(screen.getByText('ARRIVES IN RELEASE 7')).toBeTruthy();
+    expect(result.getPathname()).toBe('/inbox');
+  });
+
+  it('no longer has a notifications route', async () => {
+    // Typed routes already reject '/notifications' at compile time; this checks it at run time.
+    renderRouter(APP_DIR, { initialUrl: '/notifications' });
+    expect(await screen.findByText('Page not found')).toBeTruthy();
+  });
+});
+
 describe('development role preview', () => {
   it('lists all 11 roles and switches the workspace', async () => {
     await openDemoWorkspace();
@@ -110,11 +127,11 @@ describe('development role preview', () => {
     await openDemoWorkspace();
     await switchRole('Receptionist');
     fireEvent.press(await screen.findByRole('button', { name: 'Reception module' }));
-    expect(await screen.findByText('Reception is coming soon')).toBeTruthy();
+    expect(await screen.findByText('Reception arrives in Release 1')).toBeTruthy();
 
     act(() => router.push('/modules/finance'));
     expect(await screen.findByText('Not available for your role')).toBeTruthy();
-    expect(screen.queryByText('Finance is coming soon')).toBeNull();
+    expect(screen.queryByText('Finance arrives in Release 3')).toBeNull();
 
     act(() => router.push('/modules/does-not-exist'));
     expect(await screen.findByText('This module does not exist')).toBeTruthy();

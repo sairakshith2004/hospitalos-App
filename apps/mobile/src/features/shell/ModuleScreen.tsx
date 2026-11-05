@@ -1,11 +1,14 @@
 import { useLocalSearchParams } from 'expo-router';
 
 import { EmptyState, ScreenContainer, ScreenHeader, StatusChip } from '@/components';
-import { findModule } from '@/features/access/modules';
-import { hasPermission } from '@/features/access/permissions';
+import { canSeeModule, findModule } from '@/features/access/modules';
 import { useSignedInSession } from '@/features/session/SessionProvider';
 
-/** Module entry point. Shows not-found and permission-denied states; content arrives in later steps. */
+/**
+ * Module entry point. Shows not-found and permission-denied states, and otherwise states
+ * honestly which release the module's screens arrive in. The API enforces access on every
+ * request; this screen only decides what to show.
+ */
 export function ModuleScreen() {
   const { moduleId } = useLocalSearchParams<{ moduleId: string }>();
   const session = useSignedInSession();
@@ -20,7 +23,7 @@ export function ModuleScreen() {
     );
   }
 
-  if (!hasPermission(session.permissions, module.requires)) {
+  if (!canSeeModule(session, module)) {
     return (
       <ScreenContainer>
         <ScreenHeader title={module.title} />
@@ -33,14 +36,19 @@ export function ModuleScreen() {
     );
   }
 
+  const { release, detail } = module.availability;
   return (
     <ScreenContainer>
       <ScreenHeader title={module.title} />
-      <StatusChip label="DEMO DATA" tone="warning" dot={false} />
+      <StatusChip label={`ARRIVES IN ${release.toUpperCase()}`} tone="neutral" dot={false} />
       <EmptyState
         icon={module.icon}
-        title={`${module.title} is coming soon`}
-        message="This module's screens are built in a later roadmap step."
+        title={`${module.title} arrives in ${release}`}
+        message={
+          detail
+            ? `Planned for ${release} (${detail}). Nothing here is live yet.`
+            : `Planned for ${release}. Nothing here is live yet.`
+        }
       />
     </ScreenContainer>
   );

@@ -1,7 +1,8 @@
 # HospitalOS Mobile app
 
 Expo SDK 57 · React Native 0.86 · React 19.2 · Expo Router · TypeScript (strict).
-Design prototype only: synthetic data, no backend, no authentication.
+Phase 1.0 (mobile foundation alignment): no backend, no real sign-in and no live data yet. Plans:
+[`docs/MOBILE-IMPLEMENTATION-ROADMAP.md`](../../docs/MOBILE-IMPLEMENTATION-ROADMAP.md).
 
 ## Requirements
 
@@ -87,7 +88,58 @@ assets/         App icons and splash image
 
 Imports use the `@/` alias for `src/` (configured in `tsconfig.json`; Metro reads it natively).
 
-## Component showcase
+## Access model
 
-Open **Open component showcase** at the bottom of the dashboard, or go to `/showcase`. It is
-hidden and redirects to the dashboard when `EXPO_PUBLIC_APP_ENV=production`.
+- `src/features/access/permissions.ts`: the 88 permission codes of the reference HospitalOS model.
+- `src/features/access/roles.ts` and `role-permissions.ts`: the 11 roles, their reference codes
+  (SA, ADM, REC, DOC, NUR, PHA, LAB, FIN, HR, INV, MKT) and each role's grants.
+- `src/features/access/modules.ts`: which Home modules each user **sees** (display only).
+
+Tests compare the codes and grants with the grid in
+[`docs/MOBILE-ROLE-MODULE-MATRIX.md`](../../docs/MOBILE-ROLE-MODULE-MATRIX.md), so a change to one
+without the other fails. Permissions decide only what the app shows; the API (from phase 1.1)
+authorizes every request.
+
+## Navigation
+
+Five tabs for every role: Home, Work Queue, Search, **Inbox** and Profile. Inbox shows a labelled
+"arrives in Release 7" state only, with no counts, badges or sample items. Hospital modules open
+from Home; each one says which release its screens arrive in.
+
+## Dashboard demo data
+
+For design and visual testing, a **development demo session** sees synthetic, outpatient-only
+figures and tasks for its role (`src/features/dev/demo-dashboard.ts`), every block labelled
+**DEMO DATA**. They are aggregate numbers and generic task titles only, never patient,
+appointment, clinical or financial records, and never workflow data.
+
+- `src/features/dashboard/dashboard-content.ts` decides what Home shows: demo content only for a
+  demo session in a development build; otherwise an honest "No live figures yet" / "No tasks yet"
+  state until the API serves real figures (phase 1.11).
+- Production builds (`EXPO_PUBLIC_APP_ENV=production`) never show demo figures.
+- ESLint (`no-restricted-imports`) blocks `demo-data`, `fixtures` and `sample-data` imports outside
+  `src/features/dev` and `src/features/showcase`, and lets only `dashboard-content.ts` import the
+  demo dashboard.
+
+## Development tools (development builds only)
+
+On the sign-in screen, **Open demo workspace** starts a local preview session, and Profile →
+Developer tools → **Role preview** switches between the 11 roles. The preview session has no
+credential and the app makes no network requests, so it can't authorize anything; it is removed
+in phase 1.2, when development builds sign in to seeded demo accounts through the API.
+**Component showcase** (`/showcase`) is in the same menu. With `EXPO_PUBLIC_APP_ENV=production`
+the demo button, role preview and showcase don't exist (tested in
+`src/__tests__/production-guards.test.tsx`).
+
+## Testing notes
+
+- Jest runs on the default `jest-expo` preset (iOS). The `jest-expo/android` preset doesn't load
+  in Expo SDK 57, so Android behaviour must be checked on an emulator or a phone.
+- Tab bar items have the accessibility role `tab` on Android and `button` on iOS (React
+  Navigation); tests query the platform's role.
+
+## Android verification status
+
+No Android emulator or physical-device check has been run for this project yet: there is no
+Android SDK on the development Mac. Every result so far comes from Jest on macOS. The pending
+checklist is in the roadmap §3.1 (Phase 1.0, "Android verification").

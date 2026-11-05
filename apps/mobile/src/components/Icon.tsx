@@ -14,6 +14,7 @@ const GLYPHS = {
   home: 'home-outline',
   queue: 'list-outline',
   search: 'search-outline',
+  inbox: 'mail-outline',
   notifications: 'notifications-outline',
   profile: 'person-circle-outline',
   settings: 'settings-outline',
