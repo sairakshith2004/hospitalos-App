@@ -14,19 +14,34 @@ import {
   StatusChip,
 } from '@/components';
 import { visibleModules } from '@/features/access/modules';
-import { ROLES } from '@/features/access/roles';
+import { primaryRole } from '@/features/session/session-role';
 import { useSignedInSession } from '@/features/session/SessionProvider';
 import { borders, colors, layout, radius, spacing, tints } from '@/theme/tokens';
 
-import { demoMetrics, demoTasks } from './demo-data';
+import { getDashboardContent } from './dashboard-content';
 import { formatDateEyebrow, greetingFor } from './format';
 
-/** Home tab. Per-role dashboards replace the generic metrics in Step 8. */
+/** Shown next to every block of synthetic figures, so demo content is never mistaken for live data. */
+function DemoDataLabel() {
+  return (
+    <View style={styles.demoLabel}>
+      <StatusChip label="DEMO DATA" tone="warning" dot={false} />
+    </View>
+  );
+}
+
+/**
+ * Home tab. Synthetic figures appear only for a development demo session, always labelled
+ * DEMO DATA; every other session sees an honest empty state until the API serves real figures
+ * (phase 1.11). See `dashboard-content.ts` and docs/MOBILE-ARCHITECTURE.md §6.1.
+ */
 export function HomeScreen() {
   const router = useRouter();
   const session = useSignedInSession();
-  const role = ROLES[session.demoRoleId];
-  const modules = visibleModules(session.permissions);
+  const role = primaryRole(session);
+  const content = getDashboardContent(session);
+  const isDemo = content.kind === 'demo';
+  const modules = visibleModules(session);
   const now = new Date();
 
   return (
@@ -40,7 +55,7 @@ export function HomeScreen() {
             {greetingFor(now)}
           </AppText>
           <AppText variant="bodySmall" color="textMuted">
-            {role.title}
+            {role?.title ?? 'No role assigned'}
           </AppText>
         </View>
         <Pressable
@@ -61,50 +76,79 @@ export function HomeScreen() {
           Your hospital,{'\n'}in one view.
         </AppText>
         <AppText variant="bodySmall" color="textSecondary" style={styles.heroCopy}>
-          {role.summary}.
+          {role ? `${role.summary}.` : 'Ask your administrator to assign your role.'}
         </AppText>
         <View style={styles.heroFooter}>
-          <StatusChip label="All systems operational" tone="success" />
-          <StatusChip label="DEMO DATA" tone="warning" dot={false} />
+          <StatusChip
+            label={isDemo ? 'DEVELOPMENT PREVIEW' : 'NO LIVE DATA YET'}
+            tone={isDemo ? 'warning' : 'neutral'}
+            dot={false}
+          />
         </View>
       </GlassCard>
 
       <SectionHeader title="At a glance" meta="Today" />
-      <View style={styles.metrics}>
-        {demoMetrics.map((item) => (
-          <MetricCard
-            key={item.label}
-            label={item.label}
-            value={item.value}
-            caption={item.change}
-            tone={item.tone}
-            style={styles.metricCard}
+      {content.kind === 'demo' ? (
+        <View style={styles.demoBlock} testID="demo-figures">
+          <DemoDataLabel />
+          <View style={styles.metrics}>
+            {content.dashboard.metrics.map((item) => (
+              <MetricCard
+                key={item.label}
+                label={item.label}
+                value={item.value}
+                caption={item.caption}
+                tone={item.tone}
+                style={styles.metricCard}
+              />
+            ))}
+          </View>
+        </View>
+      ) : (
+        <GlassCard padding="none" elevation="low">
+          <EmptyState
+            icon="info"
+            title="No live figures yet"
+            message="Figures for your role appear here once HospitalOS is connected to the hospital server (Release 1, phase 1.11)."
           />
-        ))}
-      </View>
+        </GlassCard>
+      )}
 
       <SectionHeader
         title="Priority tasks"
         action={{ label: 'View all', onPress: () => router.navigate('/queue') }}
       />
-      <GlassCard padding="none" elevation="low">
-        {demoTasks.map((task, index) => (
-          <View key={task.title} style={index > 0 && styles.divider}>
-            <ListRow
-              title={task.title}
-              subtitle={task.detail}
-              leading={
-                <View style={styles.well}>
-                  <AppText variant="label" color="primary">
-                    {String(index + 1).padStart(2, '0')}
-                  </AppText>
-                </View>
-              }
-              trailing={<StatusChip label={task.tag} tone={task.tone} />}
-            />
-          </View>
-        ))}
-      </GlassCard>
+      {content.kind === 'demo' ? (
+        <View style={styles.demoBlock} testID="demo-tasks">
+          <DemoDataLabel />
+          <GlassCard padding="none" elevation="low">
+            {content.dashboard.tasks.map((task, index) => (
+              <View key={task.title} style={index > 0 && styles.divider}>
+                <ListRow
+                  title={task.title}
+                  subtitle={task.detail}
+                  leading={
+                    <View style={styles.well}>
+                      <AppText variant="label" color="primary">
+                        {String(index + 1).padStart(2, '0')}
+                      </AppText>
+                    </View>
+                  }
+                  trailing={<StatusChip label={task.tag} tone={task.tone} />}
+                />
+              </View>
+            ))}
+          </GlassCard>
+        </View>
+      ) : (
+        <GlassCard padding="none" elevation="low">
+          <EmptyState
+            icon="queue"
+            title="No tasks yet"
+            message="Your work queue fills from the hospital server as each Release 1 workflow arrives."
+          />
+        </GlassCard>
+      )}
 
       <SectionHeader title="Modules" />
       {modules.length === 0 ? (
@@ -135,7 +179,7 @@ export function HomeScreen() {
       )}
 
       <AppText variant="overline" color="textMuted" style={styles.footer}>
-        HOSPITALOS MOBILE · DESIGN PROTOTYPE · DEMO DATA
+        {isDemo ? 'HOSPITALOS MOBILE · DEVELOPMENT PREVIEW · DEMO DATA' : 'HOSPITALOS MOBILE'}
       </AppText>
     </ScreenContainer>
   );
@@ -152,6 +196,8 @@ const styles = StyleSheet.create({
   heroTitle: { marginTop: spacing.md },
   heroCopy: { marginTop: spacing.sm, maxWidth: layout.proseMaxWidth },
   heroFooter: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xl },
+  demoBlock: { gap: spacing.sm },
+  demoLabel: { alignSelf: 'flex-start' },
   metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   metricCard: { flexGrow: 1, flexBasis: layout.metricMinWidth },
   divider: { borderTopWidth: borders.hairline, borderTopColor: colors.border },

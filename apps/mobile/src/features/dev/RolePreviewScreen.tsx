@@ -13,7 +13,10 @@ import { borders, colors } from '@/theme/tokens';
 export function RolePreviewScreen() {
   const router = useRouter();
   const { state, switchDemoRole } = useSession();
-  const current = state.status === 'signed-in' ? state.session.demoRoleId : undefined;
+  const current =
+    state.status === 'signed-in' && state.session.kind === 'demo'
+      ? state.session.demoRoleId
+      : undefined;
 
   return (
     <ScreenContainer>

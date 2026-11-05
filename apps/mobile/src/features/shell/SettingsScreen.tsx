@@ -20,9 +20,9 @@ export function SettingsScreen() {
       <SectionHeader title="Preferences" />
       <SurfaceCard padding="none">
         <ListRow
-          title="Notifications"
+          title="Notification preferences"
           subtitle="Choose which alerts you receive"
-          trailing={<StatusChip label="Later" tone="neutral" dot={false} />}
+          trailing={<StatusChip label="Release 7" tone="neutral" dot={false} />}
         />
         <View style={styles.divider}>
           <ListRow

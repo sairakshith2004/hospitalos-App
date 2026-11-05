@@ -11,15 +11,15 @@ import {
   StatusChip,
   SurfaceCard,
 } from '@/components';
-import { ROLES } from '@/features/access/roles';
 import { devToolsEnabled } from '@/features/dev/flags';
+import { primaryRole } from '@/features/session/session-role';
 import { useSignedInSession } from '@/features/session/SessionProvider';
 import { borders, colors, spacing } from '@/theme/tokens';
 
 export function ProfileScreen() {
   const router = useRouter();
   const session = useSignedInSession();
-  const role = ROLES[session.demoRoleId];
+  const roleTitle = primaryRole(session)?.title ?? 'No role assigned';
 
   return (
     <ScreenContainer bottomInset={false}>
@@ -32,9 +32,11 @@ export function ProfileScreen() {
           <View style={styles.identityText}>
             <AppText variant="headline">{session.displayName}</AppText>
             <AppText variant="bodySmall" color="textMuted">
-              {role.title}
+              {roleTitle}
             </AppText>
-            <StatusChip label="DEMO SESSION" tone="warning" dot={false} />
+            {session.kind === 'demo' ? (
+              <StatusChip label="DEMO SESSION" tone="warning" dot={false} />
+            ) : null}
           </View>
         </View>
       </SurfaceCard>

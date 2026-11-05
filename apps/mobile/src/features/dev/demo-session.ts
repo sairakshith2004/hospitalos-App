@@ -1,48 +1,29 @@
-import type { Permission } from '@/features/access/permissions';
+import { ROLE_PERMISSIONS } from '@/features/access/role-permissions';
 import { ROLES, type RoleId } from '@/features/access/roles';
-import type { Session } from '@/features/session/types';
+import type { DemoSession } from '@/features/session/types';
 
 import { devToolsEnabled } from './flags';
 
 /**
- * DEVELOPMENT ONLY. Approximate permission sets so each role's navigation can be inspected
- * before the API exists. This is NOT authorization: production sessions get permissions
- * from the API, and this module refuses to create a session in production builds.
+ * DEVELOPMENT ONLY. Builds a local preview session so each role's navigation can be inspected
+ * before the API exists. Its grants are the reference role map, but it is NOT authorization:
+ * it holds no credential, never reaches the API, and this module refuses to create one in
+ * production builds. Real sessions get their permissions from the API.
  */
-const DEMO_ROLE_PERMISSIONS: Record<RoleId, readonly Permission[]> = {
-  'super-admin': ['admin.users.read', 'audit.read', 'system.read'],
-  'hospital-admin': [
-    'admin.users.read',
-    'audit.read',
-    'system.read',
-    'appointments.read',
-    'finance.read',
-    'hr.read',
-    'inventory.read',
-  ],
-  receptionist: ['patients.read', 'appointments.read'],
-  doctor: ['patients.read', 'appointments.read', 'clinical.read', 'lab.read'],
-  nurse: ['patients.read', 'nursing.read'],
-  pharmacist: ['pharmacy.read', 'inventory.read'],
-  'lab-technician': ['lab.read'],
-  'finance-manager': ['finance.read'],
-  'hr-manager': ['hr.read', 'payroll.read'],
-  'inventory-manager': ['inventory.read'],
-  'marketing-manager': ['marketing.read'],
-};
-
 export class DemoModeUnavailableError extends Error {
   override name = 'DemoModeUnavailableError';
 }
 
-export function createDemoSession(roleId: RoleId): Session {
+export function createDemoSession(roleId: RoleId): DemoSession {
   if (!devToolsEnabled) {
     throw new DemoModeUnavailableError('Demo sessions are disabled in production builds.');
   }
+  const role = ROLES[roleId];
   return {
     kind: 'demo',
-    displayName: `Demo ${ROLES[roleId].title}`,
+    displayName: `Demo ${role.title}`,
     demoRoleId: roleId,
-    permissions: DEMO_ROLE_PERMISSIONS[roleId],
+    roles: [role.code],
+    permissions: ROLE_PERMISSIONS[role.code],
   };
 }
