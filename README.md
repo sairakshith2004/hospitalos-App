@@ -47,4 +47,4 @@ Build and validate the visual system, responsive role dashboard, splash, onboard
 - Support reduced motion and accessible touch targets.
 
 ## Local development
-The app workspace will be bootstrapped with the current Expo SDK in the next implementation milestone. See `docs/IMPLEMENTATION-PLAN.md` for sequencing.
+The mobile app lives in `apps/mobile` (Expo SDK 57). See `apps/mobile/README.md` for setup and `docs/IMPLEMENTATION-PLAN.md` for sequencing.
