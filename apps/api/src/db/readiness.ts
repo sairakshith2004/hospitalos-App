@@ -1,3 +1,4 @@
+import { PERMISSIONS } from '@hospitalos/contracts';
 import { z } from 'zod';
 
 import { verifyDatabaseIdentity, type IdentityExpectations, type Queryable } from './guards';
@@ -38,6 +39,22 @@ export async function checkDatabaseReadiness(
       `expected migrations [${expected.map((m) => m.name).join(', ')}], found [${recorded
         .map((r) => r.name)
         .join(', ')}]`,
+    );
+  }
+}
+
+/**
+ * The permission catalogue in the database must equal packages/contracts (architecture §6.1).
+ * Before the first seed the table is empty, which is reported as not ready too.
+ */
+export async function checkAccessCatalogue(db: Queryable): Promise<void> {
+  const { rows } = await db.query('select code from permissions');
+  // Compared as sets: database collation and JavaScript sort order differ for ':' and '_'.
+  const stored = new Set(rows.map((row) => z.object({ code: z.string() }).parse(row).code));
+  const expected = new Set<string>(PERMISSIONS);
+  if (stored.size !== expected.size || [...expected].some((code) => !stored.has(code))) {
+    throw new MigrationStateError(
+      `permission catalogue differs from packages/contracts (${stored.size} stored, ${expected.size} expected)`,
     );
   }
 }

@@ -14,6 +14,7 @@ export type RawEnv = Readonly<Record<string, string | undefined>>;
 
 /** Settings that hold secrets and may be given as NAME_FILE=/path instead of NAME=value. */
 export const SECRET_SETTINGS = [
+  'RESET_CODE_PEPPER',
   'DATABASE_URL',
   'MIGRATION_DATABASE_URL',
   'TEST_DATABASE_URL',
@@ -98,6 +99,34 @@ const apiSchema = z.object({
   TEST_DATABASE_URL: postgresUrl.optional(),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1_000).max(3_600_000).default(60_000),
   RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(100_000).default(300),
+  /** Key for the reset-code HMAC (architecture §5.4). Random, at least 32 characters. */
+  RESET_CODE_PEPPER: z
+    .string()
+    .min(
+      MIN_DATABASE_PASSWORD_LENGTH,
+      `must be at least ${MIN_DATABASE_PASSWORD_LENGTH} random characters (run npm run env:init -- --add-missing)`,
+    )
+    .refine((value) => !PLACEHOLDER.test(value), 'still contains a placeholder value'),
+  /** Local email catcher (Mailpit). Unset: reset codes can't be emailed (logged as not sent). */
+  SMTP_HOST: z.enum(['127.0.0.1', 'localhost', '::1']).optional(),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(1026),
+  MAIL_FROM: z.email().default('no-reply@hospitalos.invalid'),
+  /** Browser origins allowed by CORS (the Expo web build in development). Empty: no CORS. */
+  CORS_ORIGINS: z
+    .string()
+    .default('')
+    .transform((v) =>
+      v
+        .split(',')
+        .map((o) => o.trim())
+        .filter(Boolean),
+    )
+    .refine(
+      (list) => list.every((o) => /^https?:\/\/[a-z0-9.-]+(:\d+)?$/i.test(o)),
+      'must be a comma-separated list of origins',
+    ),
+  /** Express trust proxy. Off unless the API runs behind a known proxy (R9). */
+  TRUST_PROXY: z.enum(['false', 'loopback']).default('false'),
 });
 
 export type ApiConfig = z.infer<typeof apiSchema>;

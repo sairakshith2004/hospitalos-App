@@ -8,8 +8,10 @@ import { ConfigError, loadConfig, loadMigrationUrl } from '../src/config/env';
 
 // Long enough to pass the 32-character password rule; never a real credential.
 const SENTINEL = 'S3cr3tValueThatMustNeverAppearInAnyLogOrError';
+const PEPPER = 'example-pepper-for-tests-only-not-a-real-secret';
 const VALID = {
   DATABASE_URL: `postgres://hos_app:${SENTINEL}@127.0.0.1:5433/hospitalos_dev`,
+  RESET_CODE_PEPPER: PEPPER,
 };
 
 function errorOf(fn: () => unknown): ConfigError {
@@ -73,7 +75,11 @@ describe('loadConfig', () => {
 
   it('allows the test database only with NODE_ENV=test', () => {
     const url = `postgres://hos_app:${SENTINEL}@127.0.0.1:5433/hospitalos_test`;
-    const allow = { DATABASE_URL: url, DATABASE_ALLOWED_NAMES: 'hospitalos_test' };
+    const allow = {
+      DATABASE_URL: url,
+      DATABASE_ALLOWED_NAMES: 'hospitalos_test',
+      RESET_CODE_PEPPER: PEPPER,
+    };
     expect(errorOf(() => loadConfig(allow)).message).toContain('NODE_ENV=test');
     expect(loadConfig({ ...allow, NODE_ENV: 'test' }).DATABASE_URL).toBe(url);
   });
@@ -110,7 +116,9 @@ describe('loadConfig', () => {
     const dir = mkdtempSync(join(tmpdir(), 'hos-env-'));
     const file = join(dir, 'database_url');
     writeFileSync(file, `${VALID.DATABASE_URL}\n`);
-    expect(loadConfig({ DATABASE_URL_FILE: file }).DATABASE_URL).toBe(VALID.DATABASE_URL);
+    expect(loadConfig({ DATABASE_URL_FILE: file, RESET_CODE_PEPPER: PEPPER }).DATABASE_URL).toBe(
+      VALID.DATABASE_URL,
+    );
     expect(
       errorOf(() => loadConfig({ DATABASE_URL_FILE: file, DATABASE_URL: VALID.DATABASE_URL }))
         .message,
@@ -127,5 +135,28 @@ describe('loadMigrationUrl', () => {
     expect(loadMigrationUrl('test', { TEST_MIGRATION_DATABASE_URL: url })).toBe(url);
     const error = errorOf(() => loadMigrationUrl('dev', {}));
     expect(error.message).toContain('MIGRATION_DATABASE_URL');
+  });
+});
+
+describe('RESET_CODE_PEPPER', () => {
+  it('is required, long and never a placeholder', () => {
+    expect(errorOf(() => loadConfig({ DATABASE_URL: VALID.DATABASE_URL })).message).toContain(
+      'RESET_CODE_PEPPER',
+    );
+    expect(errorOf(() => loadConfig({ ...VALID, RESET_CODE_PEPPER: 'short' })).message).toContain(
+      'RESET_CODE_PEPPER',
+    );
+    expect(
+      errorOf(() =>
+        loadConfig({ ...VALID, RESET_CODE_PEPPER: 'change-me-change-me-change-me-change-me' }),
+      ).message,
+    ).toContain('placeholder');
+  });
+
+  it('accepts only a loopback SMTP host', () => {
+    expect(loadConfig({ ...VALID, SMTP_HOST: '127.0.0.1' }).SMTP_HOST).toBe('127.0.0.1');
+    expect(
+      errorOf(() => loadConfig({ ...VALID, SMTP_HOST: 'smtp.example.com' })).message,
+    ).toContain('SMTP_HOST');
   });
 });

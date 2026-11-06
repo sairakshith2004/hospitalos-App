@@ -86,25 +86,14 @@ describe('permission catalogue', () => {
   });
 });
 
-describe('agreement with the mobile app until it imports this package (phase 1.2)', () => {
-  it('has the same 88 codes in the same order as apps/mobile', () => {
-    const source = read('apps/mobile/src/features/access/permissions.ts');
-    const block = source.slice(
-      source.indexOf('export const PERMISSIONS'),
-      source.indexOf('] as const'),
-    );
-    expect(codesIn(block)).toEqual([...PERMISSIONS]);
-  });
-
-  it('has the same grants for every role as apps/mobile', () => {
-    const source = read('apps/mobile/src/features/access/role-permissions.ts');
-    for (const role of ROLE_CODES) {
-      if (role === 'SA') {
-        expect(source).toContain('SA: PERMISSIONS,');
-        continue;
-      }
-      const block = new RegExp(`\\n  ${role}: \\[([\\s\\S]*?)\\n  \\]`).exec(source)?.[1] ?? '';
-      expect(codesIn(block), role).toEqual([...ROLE_PERMISSIONS[role]]);
-    }
+describe('the mobile app uses this package (no second catalogue)', () => {
+  it('re-exports the permissions and role grants instead of keeping a copy', () => {
+    const permissions = read('apps/mobile/src/features/access/permissions.ts');
+    const grants = read('apps/mobile/src/features/access/role-permissions.ts');
+    expect(permissions).toContain("from '@hospitalos/contracts'");
+    expect(grants).toContain("export { ROLE_PERMISSIONS } from '@hospitalos/contracts';");
+    // No literal permission codes in the app's access files.
+    expect(codesIn(permissions)).toEqual([]);
+    expect(codesIn(grants)).toEqual([]);
   });
 });

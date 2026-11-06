@@ -67,14 +67,22 @@ describe('F0-5 the role preview cannot authorize API access', () => {
     });
   });
 
-  it('has no code in the app that sends a network request (no API exists in Phase 1.0)', () => {
+  it('keeps all network code in the session manager, which the demo session never reaches', () => {
     const files = sourceFiles(SRC);
     expect(files.length).toBeGreaterThan(50);
-    const offenders = files.filter((file) =>
+    const network = files.filter((file) =>
       /\bfetch\s*\(|XMLHttpRequest|\baxios\b|new WebSocket|EventSource/.test(
         fs.readFileSync(file, 'utf8'),
       ),
     );
-    expect(offenders).toEqual([]);
+    expect(network.map((file) => file.slice(SRC.length + 1))).toEqual([
+      'services/session/session-manager.ts',
+    ]);
+    // The demo session and the role preview can't reach the API client or credentials.
+    for (const file of files.filter((f) => f.includes('/features/dev/'))) {
+      expect(`${file}\n${fs.readFileSync(file, 'utf8')}`).not.toMatch(
+        /@\/services|SecureStore|Authorization/,
+      );
+    }
   });
 });

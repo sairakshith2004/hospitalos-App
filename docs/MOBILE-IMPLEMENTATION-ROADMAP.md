@@ -145,7 +145,10 @@ unlock, offline writes ([scope §7](MOBILE-PRODUCT-SCOPE.md#7-potential-future-e
 | Planning documents (this set) | Revised draft, awaiting owner review |
 | Phase 1.0 | **Implemented on branch `phase/1.0-mobile-alignment`, uncommitted, awaiting owner review** (2026-11-05). Automated checks pass; Android emulator and physical-device checks **not run** (no Android SDK on this Mac): see U1 |
 | Phase 1.0 merge | Merged into `main` on GitHub (PR #3, merge commit `c7e8910`, 2026-11-05) |
-| Phase 1.1 | **Complete locally, awaiting owner review** (2026-11-05) on branch `phase/1.1-backend-foundation`: API, isolated PostgreSQL 17 container, `hospitalos_dev` and `hospitalos_test`, `hos_owner` and `hos_app`, migration 0000 in both, database tests and CI workflow. Final changes uncommitted. See the build log |
+| Phase 1.1 | **Approved by the owner** (2026-11-06); pushed to `phase/1.1-backend-foundation`, not merged. Not approved for production patient data or release (KI-1, KI-12). Originally completed locally on branch `phase/1.1-backend-foundation`: API, isolated PostgreSQL 17 container, `hospitalos_dev` and `hospitalos_test`, `hos_owner` and `hos_app`, migration 0000 in both, database tests and CI workflow. Final changes uncommitted. See the build log |
+| Phases 1.2–1.11 | **Implemented locally, uncommitted** on `release/r1-outpatient-operations` (2026-11-06): API, migrations 0001–0004, mobile screens for every R1 role, the 15-step journey passing through the API and through the app (web build). See `docs/R1-RELEASE-REPORT.md` |
+| Phase 1.12 | **Partly done:** automated hardening and security tests done; Android emulator and physical-device validation **not done** (KI-1, KI-21), so the R1 gate is not met |
+| Expo patch and `zod` override | Deferred to 2026-11-19 under the package-age policy (KI-9, KI-12) |
 | Phases 1.2 to 1.12, R2 to R9 | Planned |
 
 ## 6. Packages expected to need approval

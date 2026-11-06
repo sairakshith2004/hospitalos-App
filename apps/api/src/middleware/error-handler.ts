@@ -1,6 +1,7 @@
 import type { ErrorEnvelope } from '@hospitalos/contracts';
 import type { ErrorRequestHandler, RequestHandler } from 'express';
 
+import { postgresErrorOf } from '../db/sql';
 import { toHttpError } from '../lib/errors';
 import type { Logger } from '../lib/logger';
 
@@ -20,7 +21,17 @@ export function errorHandler(logger: Logger): ErrorRequestHandler {
     const requestId = requestIdOf(req);
     const mapped = toHttpError(error);
     if (mapped.status >= 500) {
-      logger.error({ err: error, requestId }, 'request failed');
+      // Never the error object itself: query errors carry the query's parameters and message,
+      // which can hold token hashes or patient values. Only safe identifying fields are logged.
+      const pg = postgresErrorOf(error);
+      logger.error(
+        {
+          requestId,
+          errorName: error instanceof Error ? error.name : typeof error,
+          ...(pg ? { pgErrorCode: pg.code, pgConstraint: pg.constraint ?? null } : {}),
+        },
+        'request failed',
+      );
     }
     if (res.headersSent) return;
     const body: ErrorEnvelope = {

@@ -12,7 +12,13 @@ const MIGRATIONS = fileURLToPath(new URL('../src/db/migrations', import.meta.url
 describe('loadMigrations', () => {
   it('loads the real migrations in order with stable checksums', () => {
     const migrations = loadMigrations(MIGRATIONS);
-    expect(migrations.map((m) => m.name)).toEqual(['0000_extensions.sql']);
+    expect(migrations.map((m) => m.name)).toEqual([
+      '0000_extensions.sql',
+      '0001_identity.sql',
+      '0002_identity_fixes.sql',
+      '0003_reference_data.sql',
+      '0004_outpatient.sql',
+    ]);
     const [first] = migrations;
     expect(first?.checksum).toBe(checksumOf(first?.sql ?? ''));
     expect(first?.checksum).toMatch(/^[0-9a-f]{64}$/);

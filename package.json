@@ -23,6 +23,12 @@
     "env:init": "node scripts/env-init.mjs",
     "iso:check": "node scripts/iso-check.mjs",
     "db:up": "docker compose -p hospitalos-mobile up -d --wait db",
+    "mail:up": "docker compose -p hospitalos-mobile up -d mail",
+    "db:seed": "npm run db:seed -w @hospitalos/api",
+    "db:seed:test": "npm run db:seed:test -w @hospitalos/api",
+    "db:seed:demo": "npm run db:seed:demo -w @hospitalos/api",
+    "api:bootstrap-admin": "npm run bootstrap-admin -w @hospitalos/api",
+    "api:reset-password": "npm run reset-password -w @hospitalos/api",
     "db:down": "docker compose -p hospitalos-mobile down",
     "db:init": "sh scripts/db-init.sh",
     "db:migrate": "npm run db:migrate -w @hospitalos/api",
@@ -31,6 +37,7 @@
     "secrets:check": "node scripts/secrets-check.mjs",
     "audit": "npm audit --audit-level=high",
     "mobile:check": "npm --prefix apps/mobile run check",
+    "mobile:audit": "node scripts/mobile-audit.mjs",
     "check": "npm run secrets:check && npm run typecheck && npm run lint && npm run format:check && npm test"
   },
   "devDependencies": {

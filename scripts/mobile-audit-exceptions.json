@@ -1,0 +1,19 @@
+{
+  "note": "Known high-severity advisories in apps/mobile that cannot be fixed safely inside Expo SDK 57. Each entry is classified in docs/KNOWN-ISSUES.md (KI-12). An entry stops covering CI after its reviewBy date. Never add a critical advisory here.",
+  "exceptions": [
+    {
+      "advisory": "GHSA-qr28-fpjm-wq7f",
+      "package": "decode-uri-component",
+      "scope": "production (app bundle, via expo-router > query-string)",
+      "reason": "No SDK 57 expo-router uses a fixed query-string; overriding to the ESM-only 0.5.1 breaks query parsing (tested). Fixed by Expo SDK 58. Mitigated in phase 1.2 by the incoming-link guard (AD-M-017): malformed or over-long incoming links are refused before parsing.",
+      "reviewBy": "2026-12-31"
+    },
+    {
+      "advisory": "GHSA-mrhx-c7xc-m3w5",
+      "package": "zod",
+      "scope": "development (expo CLI, eslint-plugin-react-hooks); not in the app bundle",
+      "reason": "zod 3.x has no fixed release. The Expo patch upgrade (KI-9) removes the expo CLI path; the ESLint plugin path remains until that plugin moves to zod 4.",
+      "reviewBy": "2026-12-31"
+    }
+  ]
+}

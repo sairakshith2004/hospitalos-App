@@ -17,15 +17,18 @@ export type DemoSession = Readonly<{
 
 /**
  * A server-issued session (phase 1.2): identity, roles and permissions exactly as returned by
- * `GET /v1/auth/me`. Credentials are never stored on this object; the session manager keeps the
- * access token in memory and the refresh token in SecureStore. Nothing creates one in Phase 1.0.
+ * `GET /api/v1/auth/me`. Credentials are never stored on this object; the session manager keeps
+ * the access token in memory and the refresh token in SecureStore.
  */
 export type AuthenticatedSession = Readonly<{
   kind: 'authenticated';
   userId: string;
+  username: string;
   displayName: string;
   roles: readonly RoleCode[];
   permissions: readonly Permission[];
+  /** HR or an operator set the password: every screen except password change is blocked. */
+  mustChangePassword: boolean;
 }>;
 
 export type Session = DemoSession | AuthenticatedSession;

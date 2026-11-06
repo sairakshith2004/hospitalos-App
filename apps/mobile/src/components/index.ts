@@ -12,6 +12,7 @@ export { IconButton } from './IconButton';
 export { ListRow } from './ListRow';
 export { LoadingSkeleton, SkeletonBlock } from './LoadingSkeleton';
 export { MetricCard } from './MetricCard';
+export { QueryBoundary } from './QueryBoundary';
 export { ScreenContainer } from './ScreenContainer';
 export { ScreenHeader } from './ScreenHeader';
 export { SearchField } from './SearchField';
