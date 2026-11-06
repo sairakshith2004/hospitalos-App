@@ -15,4 +15,13 @@ config.resolver.extraNodeModules = {
   '@hospitalos/contracts': path.join(repoRoot, 'packages/contracts/src'),
 };
 
+// KI-12: Expo Router's query-string 7 uses decode-uri-component 0.2.2, whose malformed-input
+// fallback is quadratic (GHSA-qr28-fpjm-wq7f). Resolve it to a linear-time local copy so the
+// vulnerable code is not bundled. Remove with the Expo SDK 58 upgrade.
+const safeDecoder = path.join(__dirname, 'shims/decode-uri-component.js');
+config.resolver.resolveRequest = (context, moduleName, platform) =>
+  moduleName === 'decode-uri-component'
+    ? { type: 'sourceFile', filePath: safeDecoder }
+    : context.resolveRequest(context, moduleName, platform);
+
 module.exports = config;

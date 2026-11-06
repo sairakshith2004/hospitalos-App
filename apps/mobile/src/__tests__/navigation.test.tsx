@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { act, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
 import { Platform } from 'react-native';
 
@@ -28,6 +28,18 @@ async function switchRole(title: string) {
   fireEvent.press(await screen.findByText('Role preview'));
   fireEvent.press(await screen.findByText(title));
   fireEvent.press(await findTab('Home'));
+}
+
+/**
+ * Navigates to a path the app does not define, to check run-time not-found handling. Typed routes
+ * (generated into .expo/types locally, absent in a clean CI checkout) reject such paths at compile
+ * time; the predicate keeps this compiling in both cases without a type assertion.
+ */
+function isRouteString(path: string | Href): path is Href {
+  return typeof path === 'string';
+}
+function pushUnknownPath(path: string): void {
+  if (isRouteString(path)) router.push(path);
 }
 
 describe('entry flow', () => {
@@ -107,8 +119,7 @@ describe('F0-4 inbox', () => {
     // to the entry point instead).
     renderRouter(APP_DIR, { initialUrl: '/sign-in' });
     await screen.findByText('Use the account your hospital gave you.');
-    // @ts-expect-error -- typed routes reject '/notifications' at compile time; this checks run time.
-    act(() => router.push('/notifications'));
+    act(() => pushUnknownPath('/notifications'));
     expect(await screen.findByText('Page not found')).toBeTruthy();
   });
 });
@@ -146,8 +157,7 @@ describe('unknown routes', () => {
   it('renders not-found for in-app navigation', async () => {
     renderRouter(APP_DIR, { initialUrl: '/sign-in' });
     await screen.findByText('Use the account your hospital gave you.');
-    // @ts-expect-error -- typed routes reject unknown paths at compile time; this checks run time.
-    act(() => router.push('/does-not-exist'));
+    act(() => pushUnknownPath('/does-not-exist'));
     expect(await screen.findByText('Page not found')).toBeTruthy();
   });
 });

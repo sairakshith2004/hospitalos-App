@@ -291,7 +291,11 @@ export function createBillingService(db: Db) {
       const p = await maybeOne(
         db,
         sql`select pay.receipt_no, i.invoice_no, pt.mrn, pt.first_name || ' ' || pt.last_name as name, pay.amount_paise, pay.method, pay.received_at,
-                   i.total_paise - i.paid_paise as balance
+                   -- The balance as it stood after this payment, so a reprinted receipt never
+                   -- changes when later payments arrive (payments are append-only).
+                   i.total_paise - (select coalesce(sum(p2.amount_paise), 0) from payments p2
+                                     where p2.invoice_id = pay.invoice_id
+                                       and (p2.received_at, p2.receipt_no) <= (pay.received_at, pay.receipt_no)) as balance
               from payments pay join invoices i on i.id = pay.invoice_id join patients pt on pt.id = i.patient_id where pay.id = ${paymentId}`,
         z.object({
           receipt_no: z.string(),

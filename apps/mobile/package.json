@@ -64,7 +64,8 @@
       "/.expo/"
     ],
     "moduleNameMapper": {
-      "^@hospitalos/contracts$": "<rootDir>/../../packages/contracts/src/index.ts"
+      "^@hospitalos/contracts$": "<rootDir>/../../packages/contracts/src/index.ts",
+      "^decode-uri-component$": "<rootDir>/shims/decode-uri-component.js"
     }
   }
 }

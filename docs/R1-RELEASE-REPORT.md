@@ -1,10 +1,13 @@
 # HospitalOS Mobile: Release 1 report
 
-Status: **Release 1 implemented locally, not complete.** Uncommitted on branch
-`release/r1-outpatient-operations` (from `2250fd6`). Every automated check below was run on
-2026-11-06. **Android emulator and physical-device validation have not been done** (no Android SDK on
-the development Mac, KI-1), so the Release 1 gate (roadmap §3: the journey on an emulator and a
-physical phone, owner sign-off) is **not met**. The app is not approved for real patient data.
+Status: **Release 1 implemented and validated on the API, the database and the web build; not
+signed off.** Branch `release/r1-outpatient-operations` at `fad45d5` (pushed; merged to `main` on
+GitHub as PR #5, `fc96e03`). R1.13 validation (2026-11-06) found and fixed four issues in the
+working tree, **uncommitted pending owner review** (§16). GitHub CI on `fad45d5` and `fc96e03`
+**failed** in the mobile job; the cause is fixed locally and passes in a clean clone. **Android
+emulator and physical-device validation have not been done** (no Android SDK on the development
+Mac, KI-1), so the Release 1 gate (roadmap §3, quality gates "Release gates") is **not met**. The app
+is not approved for real patient data.
 
 ## 1. Feature summary
 
@@ -80,7 +83,10 @@ Migrations (forward-only, checksummed, each dry-run in a rolled-back transaction
 function in 0001), `0003_reference_data.sql`, `0004_outpatient.sql`. Applied to `hospitalos_test` and
 `hospitalos_dev`.
 
-## 4. API route catalogue (86 routes, generated from the route files)
+## 4. API route catalogue (86 routes, recounted from the route files in R1.13)
+
+86 route registrations, including the two public probes. This is unrelated to the 88 permission
+identifiers in §5.
 
 | Method | Path | Permission |
 |---|---|---|
@@ -205,42 +211,68 @@ sections by permission) · Search (patients) · Inbox (Release 7 placeholder) ·
 Register patient · Patient · Chart · Book / Book follow-up · Follow-ups · Consultation · Vitals ·
 Dispense · Lab order · Invoice · Staff accounts · Nurse assignments · Module pages for later releases.
 
-## 8. Test report (run 2026-11-06)
+## 8. Test report (R1.13 run, 2026-11-06)
 
 | Suite | Result |
 |---|---|
 | Contracts (Vitest) | 9/9 |
-| API unit and HTTP (Vitest + Supertest) | 49/49 |
-| Database integration (`hospitalos_test`) | 71/71 in 8 files: identity, migrations, readiness, server process, auth, reference data, the 15-step journey, safety (concurrent booking ×10, concurrent MRNs, duplicates, check-in day rules, reschedule, no-show, walk-in tokens and idempotency, concurrent dispensing, expired/recalled/near-expiry/FEFO, expired prescription, draft recalculation vs correction, DB refuses rewriting an issued invoice, concurrent payment retries, no R3 endpoints, lab step order and barcodes) |
-| Mobile (Jest + RNTL) | 210/210 in 15 suites (link guard 84, session manager, auth flow, navigation, dashboards, access) |
-| Browser journey (web build + real API, Playwright) | Passed: REC register (duplicate warning confirmed) → book → check-in; DOC note, diagnosis, prescription, CBC, complete; PHA FEFO dispense; LAB collect/results; SA verifies; FIN issue + UPI payment ₹868.00 + receipt; ADM nurse assignment; SA staff list |
-| Typecheck, ESLint, Prettier (root and mobile), secret scan (299 files), iso:check, `git diff --check` | Pass |
-| Android export | 1,523 modules bundled |
+| API unit and HTTP (Vitest + Supertest) | 50/50 (+1: request logs omit query strings) |
+| Database integration (`hospitalos_test`) | 71/71 in 8 files (journey now also checks receipt reprints; FEFO assertion reads the earliest usable batch from the database) |
+| Mobile (Jest + RNTL) | 232/232 in 16 suites (+22: linear decoder parity, malformed input, attack timing, Expo Router's `query-string` uses it) |
+| Clean-clone mobile check (CI conditions, no `.env`, no `.expo/types`) | Pass (this is what failed on GitHub) |
+| Live API on `hospitalos_dev`, 11 demo roles | 11/11: sign-in, `/auth/me`, permission set equal to the contracts (SA 88, ADM 29, REC 21, DOC 19, PHA 19, FIN 17, INV 12, NUR 11, HR 11, LAB 8, MKT 6), dashboard 200 (live), 16 endpoint probes each (allowed where granted, 403 otherwise), sign-out, access and refresh tokens refused afterwards |
+| Live outpatient journey on `hospitalos_dev` | 59/59 checks (§17) |
+| Web build through the UI, 11 roles (Playwright 1.63, 360 × 640) | 11/11: sign-in, five tabs, role modules, Work Queue sections by permission, sign-out; no page errors; no DEMO DATA on authenticated sessions |
+| Typecheck, ESLint, Prettier (root and mobile), secret scan (302 files), iso:check, `git diff --check` | Pass |
+| Dependency audit | Root 0 high/critical; mobile 5 high from 2 classified advisories (§9) |
+| Android export | 1,523 modules (Hermes bytecode) |
 | Expo Doctor | 20/21 (patch updates deferred to 2026-11-19, KI-9) |
 | Android emulator / physical device | **Not run** (KI-1) |
 
-## 9. Security review (R1)
+## 9. Security review (R1, updated R1.13)
 
-- Fixed during R1: error logs could include query parameters (now name, PostgreSQL code and
-  constraint only); `SELECT … FOR UPDATE` needed privileges `hos_app` must not have (advisory locks).
-- Controls verified by tests: hash-only token storage, refresh reuse revocation, lockouts and rate
-  limits at their boundaries, generic reset answers, no secrets or codes in logs, append-only audit
-  (even for the owner), record-level access, idempotency, database-level invoice immutability,
-  double-booking and overselling prevented under concurrency, incoming-link guard.
-- Open: KI-12 production link-parsing advisory mitigated (not fixed) until Expo SDK 58; development
-  advisories deferred to 2026-11-19; no penetration test; no OpenAPI; no device-level testing of
-  SecureStore behaviour.
+| Area | Verified | How |
+|---|---|---|
+| `hospitalos://` link parser (GHSA-qr28-fpjm-wq7f) | **Fixed in the bundle**, package still installed | Metro/Jest resolve `decode-uri-component` to a linear-time shim; original measured at 10.1 s for 3,002 characters, shim < 100 ms via Expo Router's `query-string`; Hermes bytecode contains no original code. Every incoming link also passes the guard (initial URL and URL events both call `redirectSystemPath` before parsing; no route redirects configured; `expo-linking` does not use `query-string`). No native component: Android only registers the scheme |
+| Expo CLI / `zod` 3.25.76 (GHSA-mrhx-c7xc-m3w5) | Development only | Present via `@expo/cli` and `eslint-plugin-react-hooks`. The app bundle uses `zod` 4.6.7 from the contracts (`$ZodType` in the bytecode). Patch deferred to 2026-11-19 by owner policy (KI-9/12) |
+| Other high/critical | None | Root audit 0 high/critical |
+| Token storage | Hash-only on the server; refresh in SecureStore on Android/iOS, memory on web | Code and database suite; device keystore behaviour **not tested on a device** |
+| Refresh rotation and reuse | Pass (live) | Rotation returns a new token; reusing the old one → 401 and the whole family (newest refresh and access) → 401 |
+| Session expiry | Pass (suite) | 15 min access, 30 min idle, 12 h absolute tested at boundaries in the database suite |
+| Password reset limits | Pass (suite + live) | Generic 202 for known and unknown identifiers (live); attempt and rate limits in the suite |
+| Server-side permissions | Pass (live) | 11-role matrix; every route has a permission check |
+| Patient-level access | Pass (live) | Unassigned nurse 404 on vitals and unrelated chart; other doctor 404 (suite); MKT 403 on patient data |
+| Audit records | Pass | 210 audit rows in `hospitalos_dev` after the runs (logins, chart views, searches, bookings, payments); append-only even for the owner (suite) |
+| Sensitive logging | **Fixed** | Tokens, passwords and the Authorization header were already redacted (0 matches of the run's secrets in the log). Request logs also contained patient search terms in URLs and queries; now path only |
+| Financial controls | Pass, one fix | Integer paise, draft-only payment refusal, overpayment refusal, idempotent payments, issued invoice frozen; **fixed** receipt reprints changing balance |
+| Pharmacy stock | Pass (live) | FEFO batch, expired/recalled never used, idempotent retry, stock down exactly once (533→524, 200→185); concurrency in the suite |
+| Laboratory verification | Pass (live) | Same technician 403; another authorized user verifies; result on the same patient's chart |
+| Rate limiting | Pass (live) | 300 requests/min/IP limiter returned 429 during the latency run |
+| Open | — | Package-level KI-12 until Expo SDK 58; development `zod`; no penetration test; no OpenAPI (KI-17); no device-level SecureStore test |
 
 ## 10. Android evidence
 
-None. No emulator or device run has been possible on this machine (KI-1). Nothing in this report
-claims Android verification.
+None. No Android SDK, emulator, `adb` or Android Studio exists on this Mac (checked 2026-11-06), and
+no phone was connected. All UI evidence is from the web build and is labelled as such. Nothing in
+this report claims Android verification.
 
-## 11. Performance observations
+## 11. Performance observations (R1.13, local Mac, not a phone)
 
-Local, not representative of a mid-range phone: the database suite (71 tests with concurrency)
-runs in about 5 s; dashboard queries are single aggregates per figure; patient search is indexed
-(phone, trigram name, MRN) and capped at 20. No device profiling done.
+API latency, 20 sequential requests each against `hospitalos_dev` (status 200 checked):
+
+| Endpoint | p50 | p95 | max |
+|---|---|---|---|
+| Patient search | 3.9 ms | 4.9 ms | 6.1 ms |
+| Reception queue | 3.8 ms | 4.5 ms | 4.6 ms |
+| Dashboard (REC / SA) | 4.5 / 5.5 ms | 5.2 / 6.0 ms | 5.7 / 6.6 ms |
+| Chart (audit written first) | 6.2 ms | 6.7 ms | 7.4 ms |
+| Pharmacy queue / medicine search | 3.0 / 3.5 ms | 3.2 / 4.0 ms | 3.3 / 4.2 ms |
+| Lab worklist | 4.6 ms | 6.8 ms | 9.2 ms |
+| Invoices | 10.1 ms | 12.2 ms | 12.9 ms |
+
+Concurrency (live): 10 simultaneous bookings of one slot → 1 × 201, 9 × 409. Database suite: concurrent
+dispensing, MRNs and payment retries. Lists are capped (search 20, queues 100–200); no cursor
+pagination yet. No device profiling, offline test or network-loss test on a phone has been done.
 
 ## 12. Known issues
 
@@ -256,6 +288,8 @@ catalogue management screens).
 | All R1 migrations applied to test and dev | Done |
 | Integrated journey automated (API) | Done |
 | Integrated journey through the app UI | Done on the web build; **not on Android** |
+| Live API journey and 11-role matrix on `hospitalos_dev` (R1.13) | Done (59/59, 11/11) |
+| GitHub CI green | **No**: failed on `fad45d5`/`fc96e03`; fixed locally, needs commit and push |
 | Mobile screens for every R1 role | Done (management screens for schedules/fees/catalogue are API-only, KI-20) |
 | Security tests | Done for the controls above |
 | Android emulator at 360×640 and 411×891 | **Not done** |
@@ -277,3 +311,36 @@ security and legal reviews required before real data have not happened.
 4. End-of-day job design and approved build (no-shows, missed follow-ups, closed prescriptions,
    reconciliation), emergency access and review, document-export design.
 5. OpenAPI generation from the contracts; Expo SDK 58 upgrade plan (fully fixes KI-12).
+
+## 16. R1.13 changes awaiting review (uncommitted)
+
+| File | Change |
+|---|---|
+| `apps/mobile/src/__tests__/navigation.test.tsx` | CI fix: unknown-route navigation via a type-predicate helper instead of `@ts-expect-error` |
+| `apps/mobile/shims/decode-uri-component.js` (new) | Linear-time decoder (KI-12) |
+| `apps/mobile/metro.config.js`, `apps/mobile/package.json` (Jest `moduleNameMapper`) | Resolve `decode-uri-component` to the shim |
+| `apps/mobile/src/features/links/__tests__/decode-uri-component.test.ts` (new) | 22 tests |
+| `apps/api/src/modules/billing/billing.service.ts` | Receipt balance as at the payment |
+| `apps/api/src/security/log-request.ts` (new), `apps/api/src/app.ts` | Request logs without query strings |
+| `apps/api/test/app.test.ts`, `apps/api/test/db/journey.db.test.ts` | Regression tests; FEFO assertion from the database |
+| `docs/*` | This report, build log, quality gates, known issues |
+
+## 17. Live outpatient journey (R1.13, `hospitalos_dev`, synthetic)
+
+Reception registered `MRN000007` (duplicate warned with 409, not merged; MKT 403), found it by MRN
+and name, chose the demo doctor, read today's availability, booked (same slot again → 409), checked
+in (token 5; ₹500 consultation fee on the draft), queue showed the patient. The assigned nurse saw
+the session, recorded vitals and an Amoxicillin allergy, could not start the consultation and could
+not open an unrelated chart. The doctor opened the right patient, saw vitals and allergy, recorded a
+note and diagnosis, was stopped by the allergy until acknowledging, prescribed, ordered CBC,
+recommended a follow-up and completed (appointment completed; later notes refused; PHA cannot
+prescribe). Pharmacy opened the prescription and dispensed FEFO (PCM-A0 exp 2026-12-21, AMX-C1 exp
+2027-05-25; expired PCM-OLD and recalled AMX-RC not used); the retry returned the same dispensing;
+stock fell exactly 9 and 15. The lab received, collected, processed and entered results
+(haemoglobin flagged low); the same technician could not verify; `demo-sa` verified; the result
+appeared on the chart. Billing: draft = consultation + lab + two medicine lines = ₹1,003.00; payment
+on draft refused; issued with a gapless number; overpayment refused; ₹500 UPI part payment (balance
+₹503.00), idempotent retry recorded nothing more, reprinted receipt keeps ₹503.00, final payment
+cleared it; invoice paid and total unchanged; doctor 403. Reception saw the due follow-up and booked
+it as a `follow_up` appointment. Dashboards matched SQL counts. Cancelled-service corrections and
+issued-invoice immutability are covered by the database suite (DB triggers refuse rewriting).

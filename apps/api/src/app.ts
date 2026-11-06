@@ -3,6 +3,7 @@ import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
 
 import type { Logger } from './lib/logger';
+import { withoutQuery } from './security/log-request';
 import { cors } from './middleware/cors';
 import { errorHandler, notFound } from './middleware/error-handler';
 import { apiRateLimit, type RateLimitOptions } from './middleware/rate-limit';
@@ -49,7 +50,7 @@ export function createApp({
 
   app.use(helmet());
   app.use(cors(corsOrigins));
-  app.use(pinoHttp({ logger, genReqId: resolveRequestId }));
+  app.use(pinoHttp({ logger, genReqId: resolveRequestId, serializers: { req: withoutQuery } }));
   app.use(apiRateLimit(rateLimit));
   app.use(express.json({ limit: JSON_BODY_LIMIT, strict: true }));
 

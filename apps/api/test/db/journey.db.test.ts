@@ -14,8 +14,10 @@ import {
 } from '@hospitalos/contracts';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 
+import { one } from '../../src/db/sql';
 import {
   bearer,
   createTestDoctor,
@@ -360,6 +362,17 @@ describe('integrated outpatient journey', () => {
     const pcmItem = rx.items.find((i) => i.stockItemId === pcm.stockItemId);
     const amxItem = rx.items.find((i) => i.stockItemId === amx.stockItemId);
     if (!pcmItem || !amxItem) throw new Error('items missing');
+    // First-expiry-first-out: the usable batch with the nearest expiry at dispensing time. (Read
+    // from the database, because earlier runs on the same hospitalos_test consume stock.)
+    const fefoFirst = await one(
+      api.owner,
+      sql`select b.batch_no from stock_batches b
+           where b.stock_item_id = ${pcm.stockItemId} and b.status = 'active' and b.qty_on_hand > 0
+             and b.location_id = (select id from locations where kind = 'pharmacy' and active order by code limit 1)
+             and (b.expiry_date is null or b.expiry_date >= (now() at time zone 'Asia/Kolkata')::date)
+           order by b.expiry_date nulls last, b.id limit 1`,
+      z.object({ batch_no: z.string() }),
+    );
     const key = idem();
     const dispensed = await request(api.app)
       .post(`/api/v1/prescriptions/${rx.id}/dispense`)
@@ -375,7 +388,7 @@ describe('integrated outpatient journey', () => {
     const dispensing = dispensingSchema.parse(dispensed.body);
     expect(dispensing.prescriptionStatus).toBe('dispensed');
     expect(dispensing.lines.find((l) => l.prescriptionItemId === pcmItem.id)?.batchNo).toBe(
-      'PCM-A0',
+      fefoFirst.batch_no,
     ); // nearest unexpired expiry
     expect(dispensing.lines.some((l) => l.batchNo === 'PCM-OLD' || l.batchNo === 'AMX-RC')).toBe(
       false,
@@ -462,11 +475,22 @@ describe('integrated outpatient journey', () => {
       ).body,
     );
     expect(rest.balancePaise).toBe(0);
-    expect(
-      invoiceSchema.parse(
-        (await request(api.app).get(`/api/v1/invoices/${visitInvoice.id}`).set(bearer(fin))).body,
-      ).status,
-    ).toBe('paid');
+    const paidInvoice = invoiceSchema.parse(
+      (await request(api.app).get(`/api/v1/invoices/${visitInvoice.id}`).set(bearer(fin))).body,
+    );
+    expect(paidInvoice.status).toBe('paid');
+    // A reprinted receipt shows the balance as it stood after that payment, not today's balance.
+    const reprints = await Promise.all(
+      paidInvoice.payments.map(async (p) =>
+        receiptSchema.parse(
+          (await request(api.app).get(`/api/v1/payments/${p.id}/receipt`).set(bearer(fin))).body,
+        ),
+      ),
+    );
+    expect(reprints.find((r) => r.receiptNo === part.receiptNo)?.balancePaise).toBe(
+      part.balancePaise,
+    );
+    expect(reprints.find((r) => r.receiptNo === rest.receiptNo)?.balancePaise).toBe(0);
     expect(
       (
         await request(api.app)
