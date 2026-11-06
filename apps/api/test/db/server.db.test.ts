@@ -15,10 +15,12 @@ import { afterAll, describe, expect, it } from 'vitest';
  * over HTTP, then sends SIGTERM and expects a clean exit. Uses its own port so it never collides
  * with a developer's API on 4000.
  */
-const PORT = 4100;
+// A random port per run, so a test never talks to a server left from another run.
+const PORT = 41_000 + Math.floor(Math.random() * 900);
 const base = `http://127.0.0.1:${PORT}`;
 const apiDir = fileURLToPath(new URL('../..', import.meta.url));
-const tsx = fileURLToPath(new URL('../../../../node_modules/.bin/tsx', import.meta.url));
+// Node itself with the tsx loader (not the tsx wrapper), so signals reach the server process.
+const NODE_ARGS = ['--import', 'tsx', 'src/server.ts'];
 
 let child: ChildProcess | undefined;
 let output = '';
@@ -42,7 +44,7 @@ async function waitForHealth(): Promise<void> {
 
 describe('API server process', () => {
   it('serves health and readiness, then shuts down cleanly on SIGTERM', async () => {
-    child = spawn(tsx, ['src/server.ts'], {
+    child = spawn(process.execPath, NODE_ARGS, {
       cwd: apiDir,
       env: {
         PATH: process.env.PATH,
@@ -52,6 +54,8 @@ describe('API server process', () => {
         LOG_LEVEL: 'info',
         DATABASE_URL: process.env.TEST_DATABASE_URL,
         DATABASE_ALLOWED_NAMES: 'hospitalos_test',
+        RESET_CODE_PEPPER:
+          process.env.RESET_CODE_PEPPER ?? 'test-pepper-not-a-secret-0123456789abcdef',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -68,9 +72,14 @@ describe('API server process', () => {
     expect(ready.status).toBe(200);
     expect(readyResponseSchema.parse(await ready.json()).status).toBe('ready');
 
-    const missing = await fetch(`${base}/api/v1/nothing-here`);
+    // Outside /api/v1 an unknown path is 404; inside it, callers without a session get 401 for
+    // every path, so outsiders can't discover which routes exist.
+    const missing = await fetch(`${base}/api/nothing-here`);
     expect(missing.status).toBe(404);
     expect(errorEnvelopeSchema.parse(await missing.json()).error.requestId).toBeTruthy();
+    const hidden = await fetch(`${base}/api/v1/nothing-here`);
+    expect(hidden.status).toBe(401);
+    expect(errorEnvelopeSchema.parse(await hidden.json()).error.code).toBe('UNAUTHENTICATED');
 
     // The database closes the server's pooled connections (as on a restart). The process must
     // survive, keep answering, and reconnect for readiness.
@@ -106,7 +115,7 @@ describe('API server process', () => {
   }, 30_000);
 
   it('refuses to start when connected as the owner instead of hos_app', async () => {
-    const refused = spawn(tsx, ['src/server.ts'], {
+    const refused = spawn(process.execPath, NODE_ARGS, {
       cwd: apiDir,
       env: {
         PATH: process.env.PATH,
@@ -114,6 +123,8 @@ describe('API server process', () => {
         PORT: String(PORT + 1),
         DATABASE_URL: process.env.TEST_MIGRATION_DATABASE_URL,
         DATABASE_ALLOWED_NAMES: 'hospitalos_test',
+        RESET_CODE_PEPPER:
+          process.env.RESET_CODE_PEPPER ?? 'test-pepper-not-a-secret-0123456789abcdef',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     });

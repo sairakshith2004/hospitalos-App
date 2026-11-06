@@ -9,8 +9,8 @@ type Props = Omit<TextInputProps, 'style' | 'placeholderTextColor' | 'editable'>
   label: string;
   value: string;
   onChangeText: (text: string) => void;
-  helperText?: string;
-  errorText?: string;
+  helperText?: string | undefined;
+  errorText?: string | undefined;
   disabled?: boolean;
 };
 

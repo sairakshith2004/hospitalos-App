@@ -15,6 +15,11 @@
     "db:migrate": "tsx --env-file=../../.env src/db/migrate-cli.ts dev",
     "db:migrate:test": "tsx --env-file=../../.env src/db/migrate-cli.ts test",
     "db:env:check": "tsx --env-file=../../.env src/config/check-cli.ts",
+    "db:seed": "tsx --env-file=../../.env src/cli/seed.ts dev",
+    "db:seed:test": "tsx --env-file=../../.env src/cli/seed.ts test",
+    "db:seed:demo": "tsx --env-file=../../.env src/cli/seed-demo.ts dev",
+    "bootstrap-admin": "tsx --env-file=../../.env src/cli/bootstrap-admin.ts",
+    "reset-password": "tsx --env-file=../../.env src/cli/reset-password.ts",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {

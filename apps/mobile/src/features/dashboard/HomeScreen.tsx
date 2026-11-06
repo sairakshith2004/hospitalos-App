@@ -20,6 +20,7 @@ import { borders, colors, layout, radius, spacing, tints } from '@/theme/tokens'
 
 import { getDashboardContent } from './dashboard-content';
 import { formatDateEyebrow, greetingFor } from './format';
+import { LiveDashboard } from './LiveDashboard';
 
 /** Shown next to every block of synthetic figures, so demo content is never mistaken for live data. */
 function DemoDataLabel() {
@@ -80,8 +81,14 @@ export function HomeScreen() {
         </AppText>
         <View style={styles.heroFooter}>
           <StatusChip
-            label={isDemo ? 'DEVELOPMENT PREVIEW' : 'NO LIVE DATA YET'}
-            tone={isDemo ? 'warning' : 'neutral'}
+            label={
+              isDemo
+                ? 'DEVELOPMENT PREVIEW'
+                : session.kind === 'authenticated'
+                  ? 'LIVE DATA'
+                  : 'NO LIVE DATA'
+            }
+            tone={isDemo ? 'warning' : session.kind === 'authenticated' ? 'success' : 'neutral'}
             dot={false}
           />
         </View>
@@ -104,12 +111,14 @@ export function HomeScreen() {
             ))}
           </View>
         </View>
+      ) : session.kind === 'authenticated' ? (
+        <LiveDashboard />
       ) : (
         <GlassCard padding="none" elevation="low">
           <EmptyState
             icon="info"
-            title="No live figures yet"
-            message="Figures for your role appear here once HospitalOS is connected to the hospital server (Release 1, phase 1.11)."
+            title="No live figures"
+            message="Figures appear here for accounts signed in to the hospital server."
           />
         </GlassCard>
       )}
@@ -144,8 +153,12 @@ export function HomeScreen() {
         <GlassCard padding="none" elevation="low">
           <EmptyState
             icon="queue"
-            title="No tasks yet"
-            message="Your work queue fills from the hospital server as each Release 1 workflow arrives."
+            title={session.kind === 'authenticated' ? 'Open your work queue' : 'No tasks'}
+            message={
+              session.kind === 'authenticated'
+                ? 'Your patients, prescriptions, samples or invoices are in the Work Queue tab.'
+                : 'Tasks appear for accounts signed in to the hospital server.'
+            }
           />
         </GlassCard>
       )}

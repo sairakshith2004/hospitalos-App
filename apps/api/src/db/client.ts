@@ -1,6 +1,10 @@
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 
+// `date` columns (birth dates, visit dates, expiry) stay plain `YYYY-MM-DD` strings: converting
+// them to JavaScript Dates would shift them by the server's time zone.
+pg.types.setTypeParser(pg.types.builtins.DATE, (value) => value);
+
 /** Called when an idle pooled connection fails (for example, the database restarted). */
 export type PoolErrorHandler = (error: Error & { code?: string }) => void;
 

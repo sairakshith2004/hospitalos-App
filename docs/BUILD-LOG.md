@@ -159,3 +159,157 @@ upstream so it can't push to `main` by mistake.
   incoming-link guard approved as the first task of phase 1.2 (AD-M-017); commit and push to
   `phase/1.1-backend-foundation` approved; no merge into `main`. Not approved for production
   patient data or release while KI-1 and KI-12 remain open.
+
+### Phase 1.2: authentication (in progress, branch `phase/1.2-authentication`)
+
+**Branch.** Created from `phase/1.1-backend-foundation` at `2250fd6` (which holds the reviewed
+phase 1.1 work not yet in `main`); no upstream until the owner approves a push.
+
+**Task 1: incoming-link guard (AD-M-017), 2026-11-06.**
+
+- `apps/mobile/src/features/links/link-guard.ts`: accepts only the `hospitalos:` scheme (Expo Go's
+  `exp:`/`exps:` only in development builds); an explicit allow-list of 8 destinations (`/`,
+  `/sign-in`, `/forgot-password`, `/home`, `/queue`, `/search`, `/inbox`, `/profile`); refuses
+  over-long links, control characters, whitespace, backslashes and malformed percent-encoding;
+  drops query strings and fragments; always returns an internal path, with `/` as the fallback.
+- `apps/mobile/src/app/+native-intent.ts`: Expo Router's `redirectSystemPath` calls the guard for
+  the first link and every later one. Checked in the installed Expo Router 57.0.29: no redirects
+  are configured, so the raw link reaches the guard before any query parsing (Expo Go adds its own
+  rewrite step first, in development only).
+- ESLint now rejects external navigation: importing `Linking` from `react-native`, `expo-linking`
+  or `expo-web-browser`, and hard-coded `scheme:` URLs in `href` or in
+  `router.push`/`replace`/`navigate`/`dismissTo`. Verified with a probe file (5 errors) that
+  internal links stay allowed.
+- Tests: 69 guard unit tests (allowed links; 16 unsafe schemes; malformed, control-character,
+  protocol-relative and over-long links; blocked destinations such as development tools and
+  sign-out; the KI-12 payload decided quickly; results always internal; every allowed destination
+  exists as a screen; active with `__DEV__` false). 7 router tests through Expo Router's test
+  renderer: unknown and blocked incoming links open the splash, allowed ones open, `/home` still
+  needs a session; 3 of them fail when the guard file is removed.
+- Changed tests: the two not-found checks now navigate inside the app (`router.push`, marked
+  `@ts-expect-error` because typed routes reject those paths at compile time), because incoming
+  links no longer reach not-found. Same assertions.
+- Checks: mobile typecheck, ESLint, Prettier, Jest 170/170 (11 suites);
+  `expo export --platform android` bundles 1,328 modules. Mobile `package.json` and lockfile
+  unchanged (no new dependency). Not run: Android emulator or device (KI-1).
+
+## Release 1 (branch `release/r1-outpatient-operations`)
+
+Created 2026-11-06 from `2250fd6` (the verified remote phase 1.1 commit; `origin/main` at `98d56ec`
+holds phase 1.1 only up to `059e220`). The uncommitted link-guard work moved over unchanged.
+
+### Phase 1.2: authentication and staff accounts (complete locally, uncommitted)
+
+- **Deep links first (AD-M-017):** added repeated/identity parameters, unexpected hosts, encoded
+  traversal, right-to-left override, and "never throws" tests (84 guard tests). The vulnerable
+  parser itself is unchanged (KI-12): the guard keeps link input away from it.
+- **Database:** `0001_identity.sql` (settings with the §5.6 security ranges as CHECKs; departments,
+  employees, users, roles, permissions, role grants, user roles; append-only `audit_logs`;
+  `auth_sessions` and `auth_tokens` with hash-only storage and a used-once trigger; login attempts
+  and per-account-per-IP lockouts; reset codes stored as HMAC; reset requests counted by keyed
+  identifier hash; idempotency keys; `hos_app` privileges narrowed per table; deferred trigger that
+  keeps one active Super Admin). `0002_identity_fixes.sql` replaces that trigger function, which in
+  0001 referenced a column the `users` branch doesn't have (found by tests; 0001 was already applied
+  to `hospitalos_test`, so it was fixed forward, never edited). New migrations are now dry-run in a
+  rolled-back transaction before they are applied.
+- **API:** sign-in (argon2id via Node's built-in `crypto.argon2`, dummy hash for unknown users, 5
+  failures per account per IP lock for 15 min, 10 failures per IP per 15 min → 429), refresh
+  rotation with reuse detection that revokes the family, sign-out, sign-out everywhere, me and
+  permissions, change password (other sessions revoked), forced change (`PASSWORD_CHANGE_REQUIRED`),
+  forgot/reset by 8-digit code (HMAC with `RESET_CODE_PEPPER`, 15 min, 5 attempts, 3 per account and
+  10 per IP per hour, generic 202/400), app-version gate (426), staff create (HR), role grant/revoke
+  (SA; never self; last SA protected with an advisory lock plus the trigger; revoke ends sessions),
+  account status (ADM/SA; ADM can't touch SA accounts; disable ends sessions), role and permission
+  lists, authentication audit. Readiness also requires the permission catalogue to match the
+  contracts.
+- **Operator commands:** `db:seed` (11 roles, 88 permissions, 241 grants; refuses rather than
+  deletes on drift), `api:bootstrap-admin` and `api:reset-password` (interactive, hidden password
+  input, audited as `system`), `db:seed:demo` (development/test databases only, new random passwords
+  printed once). The API refuses to start in production while demo accounts exist.
+- **Email:** Mailpit added to our Compose project (`hospitalos-mobile-mail`, 127.0.0.1:1026/8026,
+  pinned digest, no auto-restart); a minimal loopback-only SMTP client sends reset codes (no
+  provider, no new dependency). `env-init --add-missing` added `RESET_CODE_PEPPER` and SMTP settings
+  to the existing `.env` without printing values.
+- **Security fixes found on the way:** the error handler logged whole error objects, and Drizzle
+  query errors carry query parameters (token hashes, later patient values): now only the error name,
+  PostgreSQL code and constraint are logged. `SELECT … FOR UPDATE` on `roles` needed privileges
+  `hos_app` deliberately lacks; replaced by a transaction advisory lock.
+- **Mobile:** `@hospitalos/contracts` used from source (TS path, Metro `watchFolders`, Jest mapping;
+  AD-M-018); the app's permission copy replaced by re-exports (KI-6 resolved); `z` re-exported from
+  the contracts and direct `zod` imports banned in the app (one zod instance). New dependencies
+  (exact, both older than two weeks): `expo-secure-store` 57.0.4 (SDK 57), `@tanstack/react-query`
+  5.104.5. Session manager (access token in memory, refresh token in SecureStore
+  `WHEN_UNLOCKED_THIS_DEVICE_ONLY`, single-flight refresh, app-version headers), real sign-in,
+  forgot/reset and change-password screens, forced-change routing, restore at start (nothing renders
+  until the check finishes), query cache cleared when a session ends. `EXPO_PUBLIC_API_URL` (HTTPS
+  required outside development).
+- **Checks:** API unit 48/48, database 53/53 (`hospitalos_test`), contracts 9/9, mobile 200/200
+  (14 suites), typecheck, lint, Prettier, secrets (234 files), iso:check, root audit (0 high),
+  mobile audit gate, `git diff --check`, Android export (1,486 modules). Not run: Android device.
+- **Development database:** migrations 0001–0002 applied and access model seeded. No Super Admin
+  or demo accounts created yet (bootstrap is interactive; see the README).
+
+### Phases 1.3–1.11: API complete locally (uncommitted); mobile screens in progress
+
+- **Migrations:** `0003_reference_data.sql` (doctor profiles, weekly hours, leave/blocks, service
+  catalogue and prices, locations, ingredients, medicine products and strengths, batches with
+  expiry/status, append-only stock movements, lab tests and parameters with ranges) and
+  `0004_outpatient.sql` (patients with sequence MRNs, allergies, appointments with a GiST EXCLUDE
+  constraint against double booking and unique daily tokens, nurse session assignments,
+  encounters, vitals, append-only notes and diagnoses, prescriptions with validity, dispensings and
+  lines tied to stock movements, lab orders and versioned results with an independent-verification
+  CHECK, gapless document counters, invoices with one draft per visit and triggers that freeze
+  issued invoices and their lines, append-only payments, billing corrections with separation of
+  duties, follow-ups). Both dry-run in a rolled-back transaction first.
+- **Seeds (development/test only):** synthetic departments, 4 doctors with hours and fees, services,
+  4 lab tests with ranges, 8 medicines (generic + brand + strength) with batches including an
+  expired, a near-expiry and a recalled batch. The demo doctor gets a profile and daily hours.
+- **API modules:** reference data (fees/prices/hours changes audited), patients (registration,
+  duplicate warning, MRN/phone/name search capped at 20 and audited, versioned demographics,
+  allergies, visit history), scheduling (availability from hours in hospital time, booking,
+  walk-in, check-in with token and consultation fee, cancel → fee deactivated or correction,
+  reschedule, no-show, "did not arrive", queue), clinical (care-relationship and nurse-assignment
+  record access, encounters, notes/addenda, diagnoses, vitals, audited chart written before data is
+  returned, entered-in-error, nurse assignments, follow-ups with due/overdue computed when read),
+  pharmacy (prescriptions with allergy acknowledgement and validity, cancel/close, queue, FEFO
+  dispensing with batch locks in id order, expired/recalled/quarantined never used, near-expiry
+  acknowledgement, substitution rules, idempotent), laboratory (orders with charges, collection with
+  unique barcode, reject sample, processing, results with factual flags, verification by another
+  person, reject results, cancel before collection), billing (invoice detail with collectable =
+  total − paid − open corrections, issue with gapless number, idempotent payments with gapless
+  receipts, receipt view, open corrections; no credit-note/refund/discount/export endpoint),
+  dashboards (per-role figures from live queries only).
+- **Tests (hospitalos_test):** the 15-step journey end to end with negative authorization at each
+  stage; 10 simultaneous bookings (1 wins); 8 simultaneous registrations (distinct MRNs); duplicate
+  warning and confirm; check-in day rules, reschedule, no-show; walk-in tokens and idempotency;
+  concurrent dispensing never oversells (stock and movements checked); expired/recalled/near-expiry
+  batches and FEFO across batches; expired prescription; draft recalculation vs correction on an
+  issued invoice and the payment cap; database refuses to rewrite an issued invoice; concurrent
+  payment retries record one payment; no R3 endpoints; lab step order and unique barcodes.
+- **Checks:** API unit 48/48, database 71/71, typecheck and ESLint clean.
+- **Next:** mobile screens for each role on these endpoints (Home dashboard, Search and patient,
+  Register, Book, Reception queue, Doctor encounter, Nurse vitals, Pharmacy dispense, Lab worklist,
+  Billing invoice/pay/receipt, Follow-ups), then R1 hardening and the documentation deliverables.
+
+### Release 1 completion run (2026-11-06, uncommitted)
+
+- Mobile screens built on the API for every R1 role: live Home figures; role-aware Work Queue
+  (reception check-in/cancel/no-show, doctor queue, nurse queue, pharmacy, lab, billing); Search;
+  Register (duplicate warning and confirmation); Patient; Chart; Book and Book follow-up;
+  Follow-ups; Consultation workspace (notes, diagnosis, prescription with allergy confirmation, lab
+  orders, follow-up, complete, addendum); Vitals; Dispense; Lab order; Invoice with issue, payment
+  and receipts; Staff accounts; Nurse assignments. Shared `QueryBoundary`, query hooks,
+  idempotency keys, rupee formatting from paise.
+- API additions: opt-in CORS for the development web build (AD-M-023); `ApiError` keeps the raw
+  body so the app can read duplicate candidates. Web token store memory-only (AD-M-024).
+- Browser journey on the web build against the real API with the demo accounts: passed end to end
+  (₹868.00 invoice = ₹500 consultation + ₹350 CBC + 9 × ₹2; FEFO batch PCM-A0; verification by a
+  second person; receipt shown). Admin screens: nurse assignment created, staff list shown.
+- CI: the mobile job now installs the root workspace too (the app reads the contracts' zod).
+- Checks: contracts 9/9, API 49/49, database 71/71, mobile 210/210, typecheck/ESLint/Prettier
+  clean, secrets (299 files), iso:check, root audit, mobile audit gate, Android export (1,523
+  modules), `git diff --check`; Expo Doctor 20/21 (KI-9).
+- Not done: Android emulator and physical-device runs (KI-1, KI-21), so Release 1 is **not
+  complete**. Report: `docs/R1-RELEASE-REPORT.md`.
+- Resume point if interrupted: Android device checklist (roadmap §3.1 and §3 phase 1.12), then
+  owner review of AD-M-018 to AD-M-024.

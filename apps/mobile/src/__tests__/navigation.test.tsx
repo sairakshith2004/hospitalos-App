@@ -35,14 +35,14 @@ describe('entry flow', () => {
     const result = renderRouter(APP_DIR, { initialUrl: '/' });
     fireEvent.press(await screen.findByRole('button', { name: 'Continue' }));
     fireEvent.press(await screen.findByRole('button', { name: 'Get started' }));
-    expect(await screen.findByText('Sign-in is not available yet')).toBeTruthy();
+    expect(await screen.findByText('Use the account your hospital gave you.')).toBeTruthy();
     expect(result.getPathname()).toBe('/sign-in');
   });
 
   it('opens the forgot-password screen and states no message is sent', async () => {
     renderRouter(APP_DIR, { initialUrl: '/sign-in' });
     fireEvent.press(await screen.findByRole('button', { name: 'Forgot password' }));
-    expect(await screen.findByText(/No email or SMS is sent/)).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Send code' })).toBeTruthy();
   });
 });
 
@@ -65,7 +65,7 @@ describe('protected area', () => {
       expect(getTab(name)).toBeTruthy();
     }
     fireEvent.press(getTab('Work Queue'));
-    expect(await screen.findByText('Nothing assigned yet')).toBeTruthy();
+    expect(await screen.findByText('Nothing assigned')).toBeTruthy();
   });
 
   it('signs out through the confirmation dialog', async () => {
@@ -74,12 +74,12 @@ describe('protected area', () => {
     fireEvent.press(await screen.findByText('Sign out'));
     expect(await screen.findByText('Sign out?')).toBeTruthy();
     fireEvent.press(screen.getByRole('button', { name: 'Sign out' }));
-    expect(await screen.findByText('Sign-in is not available yet')).toBeTruthy();
+    expect(await screen.findByText('Use the account your hospital gave you.')).toBeTruthy();
 
     // The demo session is cleared: protected routes are no longer reachable.
     act(() => router.push('/profile'));
     await waitFor(() => expect(screen.queryByText('DEMO SESSION')).toBeNull());
-    expect(screen.getByText('Sign-in is not available yet')).toBeTruthy();
+    expect(screen.getByText('Use the account your hospital gave you.')).toBeTruthy();
   });
 
   it('cancels sign-out and stays signed in', async () => {
@@ -103,8 +103,12 @@ describe('F0-4 inbox', () => {
   });
 
   it('no longer has a notifications route', async () => {
-    // Typed routes already reject '/notifications' at compile time; this checks it at run time.
-    renderRouter(APP_DIR, { initialUrl: '/notifications' });
+    // Navigated inside the app: incoming links never reach not-found (the link guard sends them
+    // to the entry point instead).
+    renderRouter(APP_DIR, { initialUrl: '/sign-in' });
+    await screen.findByText('Use the account your hospital gave you.');
+    // @ts-expect-error -- typed routes reject '/notifications' at compile time; this checks run time.
+    act(() => router.push('/notifications'));
     expect(await screen.findByText('Page not found')).toBeTruthy();
   });
 });
@@ -139,8 +143,34 @@ describe('development role preview', () => {
 });
 
 describe('unknown routes', () => {
-  it('renders not-found', async () => {
-    renderRouter(APP_DIR, { initialUrl: '/does-not-exist' });
+  it('renders not-found for in-app navigation', async () => {
+    renderRouter(APP_DIR, { initialUrl: '/sign-in' });
+    await screen.findByText('Use the account your hospital gave you.');
+    // @ts-expect-error -- typed routes reject unknown paths at compile time; this checks run time.
+    act(() => router.push('/does-not-exist'));
     expect(await screen.findByText('Page not found')).toBeTruthy();
+  });
+});
+
+describe('incoming links (link guard, AD-M-017)', () => {
+  it.each(['/does-not-exist', '/notifications', '/role-preview', '/sign-out', '/showcase'])(
+    'an incoming link to %s opens the normal entry point instead',
+    async (initialUrl) => {
+      const result = renderRouter(APP_DIR, { initialUrl });
+      expect(await screen.findByRole('button', { name: 'Continue' })).toBeTruthy();
+      expect(result.getPathname()).toBe('/splash');
+    },
+  );
+
+  it('an incoming link to an allowed destination opens it', async () => {
+    const result = renderRouter(APP_DIR, { initialUrl: '/forgot-password' });
+    expect(await screen.findByRole('button', { name: 'Send code' })).toBeTruthy();
+    expect(result.getPathname()).toBe('/forgot-password');
+  });
+
+  it('an incoming link to a signed-in screen still requires a session', async () => {
+    const result = renderRouter(APP_DIR, { initialUrl: '/home' });
+    await waitFor(() => expect(result.getPathname()).not.toBe('/home'));
+    expect(screen.queryByText('Priority tasks')).toBeNull();
   });
 });

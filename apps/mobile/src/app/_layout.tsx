@@ -1,6 +1,7 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DarkTheme, Stack, ThemeProvider, type ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import type { PropsWithChildren } from 'react';
+import { useState, type PropsWithChildren } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ErrorFallback } from '@/components/ErrorFallback';
@@ -22,13 +23,26 @@ const navigationTheme = {
   },
 };
 
+/** Server data cache. Nothing is persisted to disk; it is cleared whenever a session ends. */
+function createQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: 1, staleTime: 15_000, refetchOnWindowFocus: true },
+      mutations: { retry: 0 },
+    },
+  });
+}
+
 function Providers({ children }: PropsWithChildren) {
+  const [queryClient] = useState(createQueryClient);
   return (
     <SafeAreaProvider>
-      <ThemeProvider value={navigationTheme}>
-        <StatusBar style="light" />
-        {children}
-      </ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider value={navigationTheme}>
+          <StatusBar style="light" />
+          {children}
+        </ThemeProvider>
+      </QueryClientProvider>
     </SafeAreaProvider>
   );
 }
@@ -39,9 +53,13 @@ function Providers({ children }: PropsWithChildren) {
  * This is a UX boundary only; the API enforces access on every request.
  */
 function RootNavigator() {
-  const { state } = useSession();
+  const { state, ready } = useSession();
   const reducedMotion = useReducedMotion();
   const signedIn = state.status === 'signed-in';
+
+  // Nothing renders until the stored session has been checked, so a protected screen never flashes
+  // for someone who is signed out (and nobody is sent to sign-in who is about to be restored).
+  if (!ready) return null;
 
   return (
     <Stack

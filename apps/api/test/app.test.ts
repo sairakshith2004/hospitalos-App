@@ -141,3 +141,25 @@ describe('production-safe errors', () => {
     expect(text).not.toMatch(/select|schema_migrations|readiness\.ts|\bat\b/i);
   });
 });
+
+describe('CORS', () => {
+  it('answers only listed browser origins, and nothing without a list', async () => {
+    const capture = captureLogger();
+    const open = createApp({
+      logger: capture.logger,
+      checkReadiness: () => Promise.resolve(),
+      corsOrigins: ['http://localhost:8081'],
+    });
+    const allowed = await request(open)
+      .options('/api/health')
+      .set('Origin', 'http://localhost:8081');
+    expect(allowed.status).toBe(204);
+    expect(allowed.headers['access-control-allow-origin']).toBe('http://localhost:8081');
+    const other = await request(open).get('/api/health').set('Origin', 'https://evil.example');
+    expect(other.headers['access-control-allow-origin']).toBeUndefined();
+    const closed = await request(appWith().app)
+      .get('/api/health')
+      .set('Origin', 'http://localhost:8081');
+    expect(closed.headers['access-control-allow-origin']).toBeUndefined();
+  });
+});

@@ -38,13 +38,12 @@ describe('migrations on hospitalos_test', () => {
     await expect(runMigrations(owner, loadMigrations(dir))).rejects.toBeInstanceOf(MigrationError);
   });
 
-  it('record exactly one migration, with the shipped checksum', async () => {
+  it('record exactly the shipped migrations, with their checksums', async () => {
     const shipped = loadMigrations(MIGRATIONS);
     const { rows } = await owner.query<{ name: string; checksum: string }>(
       'select name, checksum from schema_migrations order by name',
     );
     expect(rows).toEqual(shipped.map(({ name, checksum }) => ({ name, checksum })));
-    expect(rows).toHaveLength(1);
   });
 
   it('let the application user read the migration history but never change it', async () => {

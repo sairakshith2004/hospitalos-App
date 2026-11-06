@@ -5,7 +5,7 @@
       "advisory": "GHSA-qr28-fpjm-wq7f",
       "package": "decode-uri-component",
       "scope": "production (app bundle, via expo-router > query-string)",
-      "reason": "No SDK 57 expo-router uses a fixed query-string; overriding to the ESM-only 0.5.1 breaks query parsing (tested). Fixed by Expo SDK 58.",
+      "reason": "No SDK 57 expo-router uses a fixed query-string; overriding to the ESM-only 0.5.1 breaks query parsing (tested). Fixed by Expo SDK 58. Mitigated in phase 1.2 by the incoming-link guard (AD-M-017): malformed or over-long incoming links are refused before parsing.",
       "reviewBy": "2026-12-31"
     },
     {

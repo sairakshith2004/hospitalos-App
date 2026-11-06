@@ -16,14 +16,21 @@ const config = JSON.parse(raw);
 
 const expected = {
   project: 'hospitalos-mobile',
-  services: ['db'],
+  services: ['db', 'mail'],
   volume: 'hospitalos-mobile-pgdata',
   network: 'hospitalos-mobile-network',
   container: 'hospitalos-mobile-db',
   ports: ['127.0.0.1:5433->5432/tcp'],
+  mailContainer: 'hospitalos-mobile-mail',
+  mailPorts: ['127.0.0.1:1026->1025/tcp', '127.0.0.1:8026->8025/tcp'],
 };
 
 const db = config.services?.db ?? {};
+const mail = config.services?.mail ?? {};
+const portsOf = (service) =>
+  (service.ports ?? []).map(
+    (p) => `${p.host_ip}:${p.published}->${p.target}/${p.protocol ?? 'tcp'}`,
+  );
 const actual = {
   project: config.name,
   services: Object.keys(config.services ?? {}),
@@ -35,6 +42,10 @@ const actual = {
   container: db.container_name,
   image: db.image,
   restart: db.restart,
+  mailContainer: mail.container_name,
+  mailPorts: portsOf(mail),
+  mailImage: mail.image,
+  mailRestart: mail.restart,
 };
 
 console.log(JSON.stringify(actual, null, 2));
@@ -47,10 +58,22 @@ if (actual.volume !== expected.volume) problems.push('volume name');
 if (actual.network !== expected.network) problems.push('network name');
 if (actual.container !== expected.container) problems.push('container name');
 if (actual.restart !== 'no') problems.push('restart policy (must be "no")');
+if (actual.mailContainer !== expected.mailContainer) problems.push('mail container name');
+if (JSON.stringify(actual.mailPorts) !== JSON.stringify(expected.mailPorts))
+  problems.push('mail ports');
+if (actual.mailRestart !== 'no') problems.push('mail restart policy (must be "no")');
+if (!/^axllent\/mailpit:v[\d.]+@sha256:[0-9a-f]{64}$/.test(actual.mailImage ?? ''))
+  problems.push('mail image pin');
 if (JSON.stringify(actual.ports) !== JSON.stringify(expected.ports)) problems.push('ports');
 if (!/^postgres:17\.11-bookworm@sha256:[0-9a-f]{64}$/.test(actual.image ?? ''))
   problems.push('image pin');
-for (const name of [actual.project, actual.volume, actual.network, actual.container]) {
+for (const name of [
+  actual.project,
+  actual.volume,
+  actual.network,
+  actual.container,
+  actual.mailContainer,
+]) {
   if (/^hospitalos[_-](?!mobile)/.test(name ?? '') || name === 'hospitalos') {
     problems.push(`name ${name} collides with the reference project`);
   }

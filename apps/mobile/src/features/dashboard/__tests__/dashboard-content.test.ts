@@ -18,6 +18,8 @@ function demoSession(role: RoleCode): DemoSession {
 const serverSession: AuthenticatedSession = {
   kind: 'authenticated',
   userId: 'user-1',
+  username: 'server-user',
+  mustChangePassword: false,
   displayName: 'Server User',
   roles: ['REC'],
   permissions: ROLE_PERMISSIONS.REC,

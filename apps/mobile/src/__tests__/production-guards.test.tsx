@@ -2,7 +2,7 @@ import { renderRouter, screen, waitFor } from 'expo-router/testing-library';
 
 import { ROLE_PERMISSIONS } from '@/features/access/role-permissions';
 import { HomeScreen } from '@/features/dashboard/HomeScreen';
-import { SessionProvider } from '@/features/session/SessionProvider';
+import { TestProviders } from '@/test-support/providers';
 
 // Simulates a production build: development tools are switched off.
 jest.mock('@/features/dev/flags', () => ({ devToolsEnabled: false }));
@@ -12,7 +12,7 @@ const APP_DIR = './src/app';
 describe('F0-5 production configuration', () => {
   it('offers no demo path on the sign-in screen', async () => {
     renderRouter(APP_DIR, { initialUrl: '/sign-in' });
-    expect(await screen.findByText('Sign-in is not available yet')).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Sign in' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Open demo workspace' })).toBeNull();
   });
 
@@ -27,7 +27,7 @@ describe('production configuration: dashboard', () => {
   it('shows no synthetic figures, even if a demo-shaped session existed', async () => {
     function Screen() {
       return (
-        <SessionProvider
+        <TestProviders
           initialState={{
             status: 'signed-in',
             session: {
@@ -40,11 +40,11 @@ describe('production configuration: dashboard', () => {
           }}
         >
           <HomeScreen />
-        </SessionProvider>
+        </TestProviders>
       );
     }
     renderRouter({ index: Screen }, { initialUrl: '/' });
-    expect(await screen.findByText('No live figures yet')).toBeTruthy();
+    expect(await screen.findByText('No live figures')).toBeTruthy();
     expect(screen.queryByText('DEMO DATA')).toBeNull();
     expect(screen.queryByTestId('demo-figures')).toBeNull();
     expect(screen.queryByText('DEVELOPMENT PREVIEW')).toBeNull();

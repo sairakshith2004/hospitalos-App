@@ -106,7 +106,13 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-          cache-dependency-path: apps/mobile/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            apps/mobile/package-lock.json
+
+      - name: Install root workspace (the shared contracts' zod, read from source by the app)
+        working-directory: .
+        run: npm ci
 
       - name: Install (mobile, its own lockfile)
         run: npm ci

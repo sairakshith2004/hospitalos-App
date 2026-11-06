@@ -9,7 +9,7 @@ Open problems, with how and when each is resolved. Closed items move to the buil
 | KI-3 | A stray `package.json`, `package-lock.json` and `node_modules` (`@types/react`, `csstype`) exist in the folder **above** the repository (`hospitalos-App-main/`) | Node and TypeScript search parent folders, so they could mask a missing dependency | The API and packages set `types: ["node"]` explicitly; CI builds from a clean checkout. The owner may delete the stray files (outside the repository) |
 | KI-4 | Starting Docker Desktop also restarts the reference project's containers (`restart: unless-stopped` in its Compose file) | Reference containers run alongside ours; no collision (different names and ports) | Not changed: modifying the reference project's resources is out of bounds. Ours never auto-restart |
 | KI-5 | A cached `postgres:17-bookworm` image was pulled during the phase 1.1 audit by a throwaway `docker run --rm` (no container, volume or network left behind) | Disk space only | `docker rmi postgres:17-bookworm` if wanted; our Compose file pins `postgres:17.11-bookworm` by digest |
-| KI-6 | `apps/mobile/src/features/access/permissions.ts` keeps its own copy of the 88 permissions and a comment saying they move to `packages/shared` | Two copies until phase 1.2; the comment names the old package | Tests in `packages/contracts` fail if the copies differ. Phase 1.2 switches the app to `@hospitalos/contracts` and removes its copy |
+| KI-6 | ~~The app kept its own copy of the 88 permissions~~ **Resolved 2026-11-06 (R1 phase 1.2):** `apps/mobile/src/features/access/permissions.ts` and `role-permissions.ts` re-export `@hospitalos/contracts`; a contracts test fails if a literal copy returns | — | Closed |
 | KI-7 | Local `main` is behind `origin/main` (Phase 1.0 was merged on GitHub) | None for the phase branches, which start from `origin/main` | Fast-forward local `main` when the owner wants |
 | KI-8 | `docs/ROADMAP.md` and `docs/IMPLEMENTATION-PLAN.md` are older plans | Could confuse readers | Mark superseded when the owner says so |
 | KI-9 | Expo Doctor (online check, 2026-11-05) now reports 4 patch updates published since Phase 1.0: `expo` 57.0.31 → ~57.0.32, `expo-constants` 57.0.22 → ~57.0.23, `expo-router` 57.0.29 → ~57.0.30, `expo-splash-screen` 57.0.10 → ~57.0.11. Phase 1.0 passed 21/21 before these releases; nothing in phase 1.1 changed the app | Doctor shows 20/21 until upgraded | Upgrade with `npx expo install --check` as a separately approved mobile dependency change (not part of phase 1.1, which must not modify the app) |
@@ -73,3 +73,23 @@ After 2026-11-19 (as a separately approved change): `npx expo install --fix` in 
 `"overrides": { "eslint-plugin-react-hooks": { "zod": "4.6.7" } }`, format `package.json`, then rerun
 the full mobile checks, Expo Doctor and the Android export; remove the `zod` entry from
 `scripts/mobile-audit-exceptions.json` once the audit no longer reports it.
+
+**KI-12 mitigation (2026-11-06, phase 1.2, uncommitted).** The incoming-link guard (AD-M-017) now
+checks every incoming link before Expo Router parses it. Links with malformed percent-encoding or
+over 2,048 characters are refused, and query strings are dropped, so the vulnerable parser never
+sees link input. Status: production finding **mitigated, not fixed**. The vulnerable packages stay
+installed until Expo SDK 58, and in-app navigation built from the app's own values still uses
+`query-string`. The audit exception keeps its review date (2026-12-31).
+
+| # | Issue | Impact | Resolution |
+|---|---|---|---|
+| KI-15 | Mobile tests print React "not wrapped in act(…)" warnings from asynchronous form updates | Noise only; every test passes | Wrap the async submissions in `act` in the tests when touching them next |
+| KI-16 | No Super Admin exists in `hospitalos_dev` yet: `npm run api:bootstrap-admin -- dev` is interactive and was not run by the agent | Nobody can sign in to the development API until it is run (or demo accounts are seeded with `npm run db:seed:demo`) | Owner runs one of the two commands |
+
+| # | Issue | Impact | Resolution |
+|---|---|---|---|
+| KI-17 | OpenAPI is not generated from the Zod contracts yet | API consumers read `packages/contracts` and `docs/R1-RELEASE-REPORT.md` §4 instead | Add generation in R2 (needs an approved dependency) |
+| KI-18 | On the web build the refresh token is kept in memory only (no keystore on web), so a page reload signs out | Web is a development aid, not a release target; Android/iOS use the keystore | By design (AD-M-024) |
+| KI-19 | Doctor call requests (nursing) are not built: the roadmap places them with messaging in R7 | Nurses cannot page a doctor from the app in R1 | R7 |
+| KI-20 | Schedules, leave, fees, prices and catalogue have management APIs (audited) but no mobile screens yet | Changes need the API (or the synthetic seed) in R1 | R2 administration screens |
+| KI-21 | Release 1 gate not met: no Android emulator or physical-device run of the journey (see KI-1) | Release 1 cannot be signed off | Run the device checklist when an Android SDK or phone is available |

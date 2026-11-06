@@ -48,6 +48,38 @@ export function ProfileScreen() {
           leading={<Icon name="settings" color={colors.textSecondary} />}
           onPress={() => router.push('/settings')}
         />
+        {session.kind === 'authenticated' &&
+        session.permissions.some(
+          (p) => p === 'user:create' || p === 'user:manage' || p === 'user_role:assign',
+        ) ? (
+          <View style={styles.divider}>
+            <ListRow
+              title="Staff accounts"
+              leading={<Icon name="people" color={colors.textSecondary} />}
+              onPress={() => router.push('/admin/staff')}
+            />
+          </View>
+        ) : null}
+        {session.kind === 'authenticated' &&
+        session.permissions.some((p) => p === 'nurse_assignment:manage') ? (
+          <View style={styles.divider}>
+            <ListRow
+              title="Nurse assignments"
+              leading={<Icon name="clipboard" color={colors.textSecondary} />}
+              onPress={() => router.push('/admin/nurse-assignments')}
+            />
+          </View>
+        ) : null}
+        {session.kind === 'authenticated' ? (
+          <View style={styles.divider}>
+            <ListRow
+              title="Change password"
+              leading={<Icon name="settings" color={colors.textSecondary} />}
+              onPress={() => router.push('/account/password')}
+              accessibilityHint="Signs out your other devices"
+            />
+          </View>
+        ) : null}
         <View style={styles.divider}>
           <ListRow
             title="Sign out"

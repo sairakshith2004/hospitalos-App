@@ -21,6 +21,43 @@ const DEMO_DASHBOARD_IMPORTS = {
     'Only src/features/dashboard/dashboard-content.ts may use the development demo dashboard.',
 };
 
+// External navigation (AD-M-017): nothing in the app may open a URL outside it until a reviewed
+// feature needs it. Incoming links go through src/features/links/link-guard.ts instead.
+// One zod: the app uses the instance the shared contracts are built with.
+const ZOD_IMPORT = {
+  name: 'zod',
+  message: "Import { z } from '@hospitalos/contracts' so the app and the contracts share one zod.",
+};
+
+const EXTERNAL_NAVIGATION_IMPORTS = [
+  {
+    name: 'react-native',
+    importNames: ['Linking'],
+    message: 'Opening URLs outside the app needs a reviewed exception (AD-M-017).',
+  },
+  {
+    name: 'expo-linking',
+    message: 'Opening URLs outside the app needs a reviewed exception (AD-M-017).',
+  },
+  {
+    name: 'expo-web-browser',
+    message: 'Opening URLs outside the app needs a reviewed exception (AD-M-017).',
+  },
+];
+
+const URL_WITH_SCHEME = '/^[a-zA-Z][a-zA-Z0-9+.-]*:/';
+const EXTERNAL_NAVIGATION_SYNTAX = [
+  {
+    selector: `JSXAttribute[name.name='href'] Literal[value=${URL_WITH_SCHEME}]`,
+    message: 'Links must stay inside the app; external URLs need a reviewed exception (AD-M-017).',
+  },
+  {
+    selector: `CallExpression[callee.property.name=/^(push|replace|navigate|dismissTo)$/] > Literal[value=${URL_WITH_SCHEME}]`,
+    message:
+      'Navigation must stay inside the app; external URLs need a reviewed exception (AD-M-017).',
+  },
+];
+
 module.exports = defineConfig([
   expoConfig,
   prettierConfig,
@@ -46,8 +83,18 @@ module.exports = defineConfig([
     rules: {
       '@typescript-eslint/no-restricted-imports': [
         'error',
-        { patterns: [SAMPLE_DATA_IMPORTS, DEMO_DASHBOARD_IMPORTS] },
+        {
+          paths: [...EXTERNAL_NAVIGATION_IMPORTS, ZOD_IMPORT],
+          patterns: [SAMPLE_DATA_IMPORTS, DEMO_DASHBOARD_IMPORTS],
+        },
       ],
+    },
+  },
+  {
+    files: ['src/**/*.ts', 'src/**/*.tsx'],
+    ignores: ['src/**/__tests__/**'],
+    rules: {
+      'no-restricted-syntax': ['error', ...EXTERNAL_NAVIGATION_SYNTAX],
     },
   },
   {
@@ -55,7 +102,10 @@ module.exports = defineConfig([
     // returns demo figures only for a development demo session (dashboard-content.ts).
     files: ['src/features/dashboard/dashboard-content.ts'],
     rules: {
-      '@typescript-eslint/no-restricted-imports': ['error', { patterns: [SAMPLE_DATA_IMPORTS] }],
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        { paths: [...EXTERNAL_NAVIGATION_IMPORTS, ZOD_IMPORT], patterns: [SAMPLE_DATA_IMPORTS] },
+      ],
     },
   },
 ]);
