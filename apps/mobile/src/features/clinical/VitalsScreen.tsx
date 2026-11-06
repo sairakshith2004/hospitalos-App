@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 
 import {
+  AppText,
   Banner,
   PrimaryButton,
   ScreenContainer,
@@ -54,8 +55,11 @@ export function VitalsScreen({ appointmentId }: { appointmentId: string }) {
 
   return (
     <ScreenContainer>
-      <ScreenHeader title="Record vitals" back />
-      <SurfaceCard>
+      <ScreenHeader title="Record vitals" eyebrow="NURSING" back />
+      <SurfaceCard padding="lg">
+        <AppText variant="bodySmall" color="textMuted">
+          Record what was measured; leave the rest blank. Values are stored as entered.
+        </AppText>
         {FIELDS.map(([key, label]) => (
           <TextField
             key={key}
@@ -69,7 +73,13 @@ export function VitalsScreen({ appointmentId }: { appointmentId: string }) {
           />
         ))}
         {error !== null ? <Banner tone="danger" title="Not saved" message={error} /> : null}
-        <PrimaryButton label="Save vitals" fullWidth loading={save.isPending} onPress={submit} />
+        <PrimaryButton
+          label="Save vitals"
+          fullWidth
+          size="lg"
+          loading={save.isPending}
+          onPress={submit}
+        />
       </SurfaceCard>
     </ScreenContainer>
   );

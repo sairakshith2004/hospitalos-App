@@ -4,14 +4,17 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 're
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
-import { colors, gradients, layout, spacing } from '@/theme/tokens';
+import { colors, gradients, layout, spacing, tints } from '@/theme/tokens';
 
 type Props = PropsWithChildren<{
   /** Scrollable by default; pass false for screens that manage their own lists. */
   scroll?: boolean;
   /** Override the readable column width, e.g. for the showcase width preview. */
   maxWidth?: number;
-  /** Bottom safe-area padding. Off inside tab screens, where the tab bar owns that inset. */
+  /**
+   * Bottom safe-area padding. False inside tab screens: the content then leaves room for the
+   * floating tab bar instead.
+   */
   bottomInset?: boolean;
   testID?: string;
 }>;
@@ -32,7 +35,7 @@ export function ScreenContainer({
 
   const padding = {
     paddingTop: insets.top + spacing.lg,
-    paddingBottom: (bottomInset ? insets.bottom : 0) + spacing.xxl,
+    paddingBottom: insets.bottom + (bottomInset ? spacing.xxl : layout.tabBarClearance),
     paddingLeft: insets.left + screenPadding,
     paddingRight: insets.right + screenPadding,
   };
@@ -45,6 +48,14 @@ export function ScreenContainer({
         colors={gradients.screen.colors}
         locations={gradients.screen.locations}
         style={StyleSheet.absoluteFill}
+      />
+      {/* A faint violet ambient light from the top right, for depth. Static: no battery cost. */}
+      <LinearGradient
+        colors={[tints.secondary, 'transparent']}
+        start={{ x: 1, y: 0 }}
+        end={{ x: 0.35, y: 0.35 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
       />
       {/* Keeps focused inputs above the keyboard on both platforms (edge-to-edge Android). */}
       <KeyboardAvoidingView
@@ -73,3 +84,6 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
   column: { width: '100%', alignSelf: 'center', gap: spacing.lg + spacing.xxs },
 });
+
+/** Same component under the design-system name. */
+export const AppScreen = ScreenContainer;

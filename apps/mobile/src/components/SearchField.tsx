@@ -1,7 +1,16 @@
 import { useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
-import { borders, colors, layout, radius, spacing, typography } from '@/theme/tokens';
+import {
+  borders,
+  colors,
+  elevation,
+  iconSize,
+  layout,
+  radius,
+  spacing,
+  typography,
+} from '@/theme/tokens';
 
 import { Icon } from './Icon';
 import { IconButton } from './IconButton';
@@ -20,7 +29,7 @@ export function SearchField({ value, onChangeText, label, onSubmit, testID }: Pr
 
   return (
     <View style={[styles.root, focused && styles.focused]} accessibilityRole="search">
-      <Icon name="search" size={18} color={colors.textMuted} />
+      <Icon name="search" size={iconSize.md} color={focused ? colors.primary : colors.textMuted} />
       <TextInput
         testID={testID}
         value={value}
@@ -55,13 +64,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    minHeight: layout.minTouchTarget,
+    minHeight: layout.minTouchTarget + spacing.sm,
     paddingLeft: spacing.lg,
     paddingRight: spacing.xs,
-    borderRadius: radius.pill,
+    borderRadius: radius.lg,
     borderWidth: borders.thin,
-    borderColor: colors.border,
+    borderColor: colors.borderStrong,
     backgroundColor: colors.surfaceStrong,
+    ...elevation.low,
   },
   focused: { borderColor: colors.borderFocus },
   input: {
@@ -72,3 +82,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
 });
+
+/** Same component under the design-system name. */
+export const SearchBar = SearchField;

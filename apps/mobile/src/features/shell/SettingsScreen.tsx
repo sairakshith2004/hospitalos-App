@@ -16,7 +16,7 @@ export function SettingsScreen() {
   const version = Constants.expoConfig?.version ?? 'unknown';
   return (
     <ScreenContainer>
-      <ScreenHeader title="Settings" />
+      <ScreenHeader title="Settings" eyebrow="ACCOUNT" />
       <SectionHeader title="Preferences" />
       <SurfaceCard padding="none">
         <ListRow

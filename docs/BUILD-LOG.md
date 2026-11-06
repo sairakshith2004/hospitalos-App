@@ -313,3 +313,90 @@ holds phase 1.1 only up to `059e220`). The uncommitted link-guard work moved ove
   complete**. Report: `docs/R1-RELEASE-REPORT.md`.
 - Resume point if interrupted: Android device checklist (roadmap §3.1 and §3 phase 1.12), then
   owner review of AD-M-018 to AD-M-024.
+
+### R1.13 final integration and release validation (2026-11-06, uncommitted)
+
+- **Repository:** `sairakshith2004/hospitalos-App`, branch `release/r1-outpatient-operations` at
+  `fad45d5`, level with `origin`. The R1 commit was already pushed and merged to `main` on GitHub
+  (PR #5, merge `fc96e03`); local `main` is behind (KI-7). The outer `hospitalos-App-main/` folder is
+  not a Git repository (KI-3).
+- **CI before this run:** run 42169285096 (push) and 42169315835 (PR) on `fad45d5`, and 42169336062
+  on `main` after the merge: **failed** in the mobile job ("Typecheck, lint, Prettier and Jest"); the
+  API/contracts/database job passed. Cause, reproduced in a clean clone: two `@ts-expect-error`
+  lines in `navigation.test.tsx` depend on typed routes generated into the git-ignored
+  `.expo/types`, which a clean checkout lacks. Fixed with a type-predicate helper (no assertion,
+  no suppression); the clean clone now passes 232/232.
+- **KI-12 fixed in the bundle:** `decode-uri-component` (GHSA-qr28-fpjm-wq7f) is resolved by Metro
+  and Jest to `apps/mobile/shims/decode-uri-component.js`, a linear-time copy with the same result
+  for valid input. Measured: the installed original takes 10.1 s on a 3,002-character payload; the
+  shim, through Expo Router's `query-string`, under 100 ms. The Hermes bytecode of the Android
+  export contains the shim and none of the original's functions. The package remains installed, so
+  `npm audit` still lists it (classified, not suppressed). The incoming-link guard stays.
+- **Fixed — receipt reprint balance:** `GET /payments/:id/receipt` returned the invoice's current
+  balance, so an earlier receipt changed after later payments. It now returns the balance after
+  that payment (payments are append-only). Regression added to the database journey test.
+- **Fixed — patient identifiers in request logs:** pino-http logged full URLs and parsed queries,
+  including patient search terms (`/patients?q=<name|phone|MRN>`). Request logs now keep the path
+  only (`src/security/log-request.ts`); test added.
+- **Test robustness:** the journey test hard-coded FEFO batch `PCM-A0`, which fails once repeated
+  local runs exhaust that batch in `hospitalos_test`; it now asserts the earliest-expiring usable
+  batch read from the database at dispensing time (same rule, no weakening).
+- **Runtime:** our `hospitalos-mobile-db` (127.0.0.1:5433) and `hospitalos-mobile-mail`
+  (127.0.0.1:1026/8026) were already running and were reused; reference containers untouched; no
+  volume changed. API on 127.0.0.1:4000 (`npm run start:api`): `/api/health` 200 `ok`,
+  `/api/ready` 200 `database: ok`. Expo dev server via `npm run web` on 8081.
+- **Accounts:** `npm run db:seed:demo -- dev` (inspected first: refuses outside development/test,
+  `hos_owner` identity check, `hospitalos_dev`/`hospitalos_test` only, insert-only seeds). Demo
+  passwords rotated; output captured to a mode-600 scratch file, never printed.
+- **Live verification on `hospitalos_dev`:** 11/11 roles pass (permissions equal the contracts,
+  allowed probes allowed, forbidden probes 403, access and refresh refused after sign-out); the
+  outpatient journey 59/59; browser pass of all 11 roles on the web build (sign-in, five tabs,
+  modules, queues, sign-out). Dashboard figures equal direct SQL counts.
+- **Checks:** contracts 9/9, API 50/50, database 71/71, mobile 232/232, typecheck/ESLint/Prettier
+  clean (root and mobile), secrets (302 files), iso:check, `git diff --check`, root audit 0 high,
+  mobile audit gate passes (2 classified highs), Android export 1,523 modules, Expo Doctor 20/21.
+- **Not done:** Android emulator and physical device (no Android SDK on this Mac). Release 1
+  remains **not signed off**.
+
+### Premium UI redesign, stages A–I (2026-11-06, uncommitted)
+
+- **A** Visual gap report: `docs/UI-VISUAL-GAP-REPORT.md` (web-preview screenshots of every role
+  and screen, code audit).
+- **B** Tokens (`src/theme/tokens.ts`): approved palette (#080F1D, #111E32, #192840, #35D5E6,
+  #9D90FF, #F4F7FC, #8494AB; #64748B for disabled only), info tone, tints, hero/accent gradients,
+  chart colours, icon sizes, breakpoints, tabular figure styles, glow elevation, motion curves,
+  spring and stagger, tab-bar and sheet geometry. Contrast enforced by a 49-case test.
+- **C** Components: every existing component restyled; new `GradientHeader`, `PatientCard`,
+  `AppointmentCard`, `DoctorCard`, `ChartCard`/`BarList`/`StackedBar`, `BottomSheet`,
+  `FloatingActionButton`, `ProfileHeader`, `CustomTabBar`, `ChoiceChip`/`ChoiceGroup`/
+  `SegmentedControl`, `DataRow`, `Divided`, `ActionRow`, `GhostButton`, `BrandMark`,
+  `PressableScale`, `useEntrance`, shared `statusTone()`; offline and permission-denied states in
+  `QueryBoundary`; password reveal in `TextField`.
+- **D/E** Home: hospital name from `GET /api/v1/hospital`, brand mark, inbox and profile entries,
+  role chip, live hero summary, icon KPI cards, same-day charts, needs-attention tasks, permission-
+  gated quick actions, modules. Per-role configuration for all 11 roles in
+  `features/dashboard/role-home.ts` (summary text only from returned figures; charts only for real
+  wholes or pipelines; no trends). Demo session keeps DEMO DATA labels.
+- **F** Screens: splash, onboarding, sign-in, forgot/change password, Work Queue (appointment cards,
+  segmented invoice filter), Search (patient cards), Inbox, Profile, Patient (identity header, data
+  rows, walk-in sheet, visit timeline), Register (radio group), Book (doctor cards, day/time chips,
+  summary), Follow-ups, Chart (allergy flag at identity, vital tiles, structured consultations and
+  results), Consultation (hero summary, medicine stock states, structured lines, lab order
+  confirmation), Vitals, Dispense (identity, allergy banner, medicine cards), Lab order (stage
+  tracker, results rows), Invoice (money hierarchy, charge groups, segmented payment method, receipt
+  sheet), Staff accounts and Nurse sessions (chips and doctor cards), module pages, not-found
+  (no hard-coded styles left).
+- **Behaviour changes made with the redesign (no API or business-rule change):** ordering a lab test
+  now asks for confirmation (it ordered on a single tap); receipts open from the invoice using the
+  existing `GET /payments/:id/receipt`; walk-in doctor choice moved into a sheet; the "Work queue"
+  quick action is shown only to roles that have a queue; the tab label reads "Queue" (accessible
+  name "Work Queue") so it no longer truncates at 360 dp (KI-22).
+- **G** Motion: Reanimated 4 press springs, staggered entrances (opacity/transform only), tab pill
+  spring, sheet and dialog transitions, chart bar growth; all off under reduced motion. Tests use
+  Reanimated's official Jest mocks (`jest.setup.ts`).
+- **H/I** Checks: mobile typecheck, ESLint, Prettier, Jest 304/304 (19 suites; +72 tests: contrast,
+  role-home, redesigned components, decoder), Expo Doctor 20/21 (KI-9), Android export 1,858 modules
+  with the KI-12 shim still the only decoder in the bytecode. 84 screenshots reviewed and refined
+  (web preview, Chromium, 360×800, 360×1900, 411×891, 768×1024). **No Android device or emulator.**
+- Note: Metro's file watcher does not see edits on this Mac (no watchman; fsevents install script
+  blocked, KI-11), so the Expo dev server must be restarted to pick up changes.

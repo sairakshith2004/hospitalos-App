@@ -1,10 +1,12 @@
 import { useWindowDimensions } from 'react-native';
 
-import { layout } from '@/theme/tokens';
+import { breakpoints, layout } from '@/theme/tokens';
 
 export type ResponsiveLayout = {
   width: number;
   isWide: boolean;
+  /** Narrow phones (under 380 dp): tighter grids and single-column actions. */
+  isCompact: boolean;
   screenPadding: number;
 };
 
@@ -15,6 +17,7 @@ export function useResponsiveLayout(): ResponsiveLayout {
   return {
     width,
     isWide,
+    isCompact: width < breakpoints.compact + 20,
     screenPadding: isWide ? layout.screenPaddingWide : layout.screenPadding,
   };
 }

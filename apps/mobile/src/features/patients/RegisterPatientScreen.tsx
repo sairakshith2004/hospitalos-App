@@ -9,7 +9,9 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import {
+  AppText,
   Banner,
+  ChoiceGroup,
   ListRow,
   PrimaryButton,
   ScreenContainer,
@@ -98,7 +100,7 @@ export function RegisterPatientScreen() {
 
   return (
     <ScreenContainer>
-      <ScreenHeader title="Register patient" back />
+      <ScreenHeader title="Register patient" eyebrow="RECEPTION" back />
       <SurfaceCard>
         <TextField
           label="First name"
@@ -120,15 +122,16 @@ export function RegisterPatientScreen() {
           keyboardType="numbers-and-punctuation"
           errorText={fields.dob}
         />
-        <View style={styles.row}>
-          {SEXES.map((s) => (
-            <SecondaryButton
-              key={s}
-              label={humanize(s)}
-              disabled={form.sex === s}
-              onPress={() => set('sex')(s)}
-            />
-          ))}
+        <View style={styles.field}>
+          <AppText variant="label" color="textSecondary">
+            Sex
+          </AppText>
+          <ChoiceGroup
+            label="Sex"
+            value={form.sex}
+            onChange={(v) => set('sex')(v)}
+            options={SEXES.map((v) => ({ value: v, label: humanize(v) }))}
+          />
         </View>
         <TextField
           label="Mobile number"
@@ -186,4 +189,5 @@ export function RegisterPatientScreen() {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  field: { gap: spacing.xs + spacing.xxs },
 });

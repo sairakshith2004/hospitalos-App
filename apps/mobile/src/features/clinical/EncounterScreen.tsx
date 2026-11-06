@@ -13,8 +13,14 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import {
+  ActionRow,
   AppText,
   Banner,
+  BottomSheet,
+  ChoiceChip,
+  Divided,
+  GlassCard,
+  Icon,
   ListRow,
   PrimaryButton,
   QueryBoundary,
@@ -26,10 +32,12 @@ import {
   StatusChip,
   SurfaceCard,
   TextField,
+  statusTone,
 } from '@/components';
 import { ApiError, describeError } from '@/services/api/errors';
 import { useApiMutation, useApiQuery } from '@/services/api/hooks';
-import { spacing } from '@/theme/tokens';
+import { humanize } from '@/services/format';
+import { borders, colors, iconSize, layout, radius, spacing, tints } from '@/theme/tokens';
 
 type RxLine = {
   medicine: Medicine;
@@ -45,6 +53,7 @@ type RxLine = {
  * suggests a diagnosis, medicine or dose.
  */
 export function EncounterScreen({ id }: { id: string }) {
+  const [confirmTest, setConfirmTest] = useState<{ id: string; name: string } | null>(null);
   const router = useRouter();
   const encounter = useApiQuery(['encounter', id], `/api/v1/encounters/${id}`, encounterSchema);
   const hospital = useApiQuery(['hospital'], '/api/v1/hospital', hospitalInfoSchema);
@@ -136,7 +145,7 @@ export function EncounterScreen({ id }: { id: string }) {
 
   return (
     <ScreenContainer>
-      <ScreenHeader title="Consultation" back />
+      <ScreenHeader title="Consultation" eyebrow="DOCTOR" back />
       {message !== null ? (
         <Banner tone={message.tone} title={message.title} message={message.text} />
       ) : null}
@@ -145,25 +154,42 @@ export function EncounterScreen({ id }: { id: string }) {
           const open = e.status === 'in_progress';
           return (
             <View style={styles.root}>
-              <SurfaceCard>
-                <AppText variant="label">{e.encounterNo}</AppText>
-                <StatusChip
-                  label={e.status.replace(/_/g, ' ')}
-                  tone={open ? 'primary' : 'success'}
-                />
+              <GlassCard tone="hero" padding="lg" enterIndex={0}>
+                <View style={styles.head}>
+                  <View style={styles.flex}>
+                    <AppText variant="overline" color="primary">
+                      CONSULTATION
+                    </AppText>
+                    <AppText variant="title">{e.encounterNo}</AppText>
+                  </View>
+                  <StatusChip label={humanize(e.status)} tone={statusTone(e.status)} size="md" />
+                </View>
+                {e.diagnoses.map((d) => (
+                  <View key={d.id} style={styles.fact}>
+                    <AppText variant="overline" color="secondary">
+                      DIAGNOSIS
+                    </AppText>
+                    <AppText variant="body">{d.description}</AppText>
+                  </View>
+                ))}
+                {e.notes.map((n) => (
+                  <View key={n.id} style={styles.fact}>
+                    <AppText variant="overline" color="textMuted">
+                      {humanize(n.kind).toUpperCase()}
+                    </AppText>
+                    <AppText variant="bodySmall" color="textSecondary">
+                      {n.body}
+                    </AppText>
+                  </View>
+                ))}
                 <SecondaryButton
                   label="Open chart"
+                  fullWidth
                   onPress={() =>
                     router.push({ pathname: '/patients/[id]/chart', params: { id: e.patientId } })
                   }
                 />
-                {e.diagnoses.map((d) => (
-                  <AppText key={d.id}>{`Diagnosis: ${d.description}`}</AppText>
-                ))}
-                {e.notes.map((n) => (
-                  <AppText key={n.id} color="textSecondary">{`${n.kind}: ${n.body}`}</AppText>
-                ))}
-              </SurfaceCard>
+              </GlassCard>
 
               <SectionHeader title={open ? 'Notes' : 'Addendum'} />
               <SurfaceCard>
@@ -219,7 +245,21 @@ export function EncounterScreen({ id }: { id: string }) {
                       <ListRow
                         key={m.stockItemId}
                         title={m.brandName}
-                        subtitle={`${m.ingredients.map((i) => `${i.name} ${i.strength} ${i.unit}`).join(' + ')} · ${m.dosageForm} · ${m.availableQty} available`}
+                        subtitle={`${m.ingredients.map((i) => `${i.name} ${i.strength} ${i.unit}`).join(' + ')}  ·  ${humanize(m.dosageForm)}`}
+                        leading={
+                          <View style={styles.medWell}>
+                            <Icon name="medkit" size={iconSize.sm} color={colors.primary} />
+                          </View>
+                        }
+                        trailing={
+                          <StatusChip
+                            label={
+                              m.availableQty > 0 ? `${m.availableQty} in stock` : 'Out of stock'
+                            }
+                            tone={m.availableQty > 0 ? 'success' : 'danger'}
+                            dot={false}
+                          />
+                        }
                         onPress={() => {
                           setLines((current) => [
                             ...current,
@@ -238,7 +278,17 @@ export function EncounterScreen({ id }: { id: string }) {
                     ))}
                     {lines.map((l, index) => (
                       <View key={`${l.medicine.stockItemId}-${index}`} style={styles.line}>
-                        <AppText variant="label">{l.medicine.brandName}</AppText>
+                        <View style={styles.head}>
+                          <View style={styles.flex}>
+                            <AppText variant="subhead">{l.medicine.brandName}</AppText>
+                            <AppText variant="caption" color="textMuted">
+                              {l.medicine.ingredients
+                                .map((i) => `${i.name} ${i.strength} ${i.unit}`)
+                                .join(' + ')}
+                            </AppText>
+                          </View>
+                          <StatusChip label={`Line ${index + 1}`} tone="neutral" dot={false} />
+                        </View>
                         {(['dose', 'frequency', 'days', 'qty'] as const).map((field) => (
                           <TextField
                             key={field}
@@ -261,8 +311,10 @@ export function EncounterScreen({ id }: { id: string }) {
                             }
                           />
                         ))}
-                        <SecondaryButton
-                          label={l.substitution ? 'Substitution allowed ✓' : 'Allow substitution'}
+                        <ChoiceChip
+                          role="checkbox"
+                          label="Allow substitution"
+                          selected={l.substitution}
                           onPress={() =>
                             setLines((current) =>
                               current.map((x, i) =>
@@ -309,25 +361,22 @@ export function EncounterScreen({ id }: { id: string }) {
                   <QueryBoundary query={tests} loadingLabel="Loading tests">
                     {(t) => (
                       <SurfaceCard padding="none">
-                        {t.items.map((test) => (
-                          <ListRow
-                            key={test.id}
-                            title={test.name}
-                            subtitle={`${test.sampleType} · about ${test.turnaroundHours} h`}
-                            onPress={() =>
-                              void order
-                                .mutateAsync(test.id)
-                                .then((o) =>
-                                  setMessage({
-                                    tone: 'success',
-                                    title: 'Test ordered',
-                                    text: `${o.orderNo} is on the lab worklist.`,
-                                  }),
-                                )
-                                .catch(fail('Not ordered'))
-                            }
-                          />
-                        ))}
+                        <Divided>
+                          {t.items.map((test) => (
+                            <ListRow
+                              key={test.id}
+                              title={test.name}
+                              subtitle={`${test.sampleType}  ·  about ${test.turnaroundHours} h`}
+                              leading={
+                                <View style={styles.medWell}>
+                                  <Icon name="flask" size={iconSize.sm} color={colors.secondary} />
+                                </View>
+                              }
+                              accessibilityHint="Asks for confirmation before ordering"
+                              onPress={() => setConfirmTest({ id: test.id, name: test.name })}
+                            />
+                          ))}
+                        </Divided>
                       </SurfaceCard>
                     )}
                   </QueryBoundary>
@@ -389,11 +438,62 @@ export function EncounterScreen({ id }: { id: string }) {
           );
         }}
       </QueryBoundary>
+      <BottomSheet
+        visible={confirmTest !== null}
+        title="Order this test?"
+        onClose={() => setConfirmTest(null)}
+      >
+        <AppText variant="body">{confirmTest?.name ?? ''}</AppText>
+        <AppText variant="bodySmall" color="textMuted">
+          {"The order goes to the laboratory worklist and its charge to the visit's bill."}
+        </AppText>
+        <ActionRow>
+          <SecondaryButton label="Cancel" fullWidth onPress={() => setConfirmTest(null)} />
+          <PrimaryButton
+            label="Order test"
+            fullWidth
+            loading={order.isPending}
+            onPress={() => {
+              const test = confirmTest;
+              setConfirmTest(null);
+              if (test === null) return;
+              void order
+                .mutateAsync(test.id)
+                .then((o) =>
+                  setMessage({
+                    tone: 'success',
+                    title: 'Test ordered',
+                    text: `${o.orderNo} is on the lab worklist.`,
+                  }),
+                )
+                .catch(fail('Not ordered'));
+            }}
+          />
+        </ActionRow>
+      </BottomSheet>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
   root: { gap: spacing.md },
-  line: { gap: spacing.sm, paddingVertical: spacing.sm },
+  head: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+  flex: { flex: 1, gap: spacing.xxs },
+  fact: { gap: spacing.xxs },
+  medWell: {
+    width: layout.iconWell,
+    height: layout.iconWell,
+    borderRadius: radius.sm,
+    backgroundColor: tints.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  line: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: borders.thin,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceRaised,
+  },
 });

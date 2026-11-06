@@ -1,7 +1,7 @@
-import type { ReactNode } from 'react';
+import { Children, Fragment, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { colors, layout, radius, spacing } from '@/theme/tokens';
+import { borders, colors, iconSize, layout, radius, spacing } from '@/theme/tokens';
 
 import { AppText } from './AppText';
 import { Icon } from './Icon';
@@ -38,7 +38,7 @@ export function ListRow({
         ) : null}
       </View>
       {trailing}
-      {onPress ? <Icon name="chevron-right" size={16} color={colors.textMuted} /> : null}
+      {onPress ? <Icon name="chevron-right" size={iconSize.sm} color={colors.textMuted} /> : null}
     </>
   );
 
@@ -63,6 +63,24 @@ export function ListRow({
   );
 }
 
+/**
+ * Children separated by hairline dividers, inside whatever card holds them. Use for every list
+ * of rows so rows never run together.
+ */
+export function Divided({ children }: { children: ReactNode }) {
+  const items = Children.toArray(children).filter(Boolean);
+  return (
+    <>
+      {items.map((child, index) => (
+        <Fragment key={index}>
+          {index > 0 ? <View style={styles.divider} /> : null}
+          {child}
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
@@ -75,4 +93,9 @@ const styles = StyleSheet.create({
   },
   pressed: { backgroundColor: colors.surfacePressed },
   body: { flex: 1, gap: spacing.xxs },
+  divider: {
+    height: borders.hairline,
+    backgroundColor: colors.border,
+    marginHorizontal: spacing.lg,
+  },
 });

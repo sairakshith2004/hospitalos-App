@@ -107,6 +107,14 @@ describe('request logging', () => {
     expect(logged).toContain('[redacted]');
     expect(logged).not.toContain('supersecrettoken');
   });
+
+  it('logs the path but never the query string (patient search terms)', async () => {
+    const { app, lines } = appWith();
+    await request(app).get('/api/health?q=Ravi%20Kumar&phone=9876543210');
+    const logged = lines().join('\n');
+    expect(logged).toContain('"url":"/api/health"');
+    expect(logged).not.toMatch(/Ravi|9876543210|"query"/);
+  });
 });
 
 describe('rate limiting foundation', () => {

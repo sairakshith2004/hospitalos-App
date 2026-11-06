@@ -70,7 +70,10 @@ export function ChangePasswordScreen({ forced }: Props) {
 
   return (
     <ScreenContainer>
-      <ScreenHeader title={forced ? 'Choose a new password' : 'Change password'} />
+      <ScreenHeader
+        title={forced ? 'Choose a new password' : 'Change password'}
+        eyebrow="SECURITY"
+      />
       {forced ? (
         <Banner
           tone="warning"

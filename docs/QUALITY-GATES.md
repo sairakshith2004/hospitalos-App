@@ -43,3 +43,28 @@ when it was actually run; device, emulator, security and deployment results name
 
 UI, API, permission checks, business rules, database persistence, audit trail and tests all work.
 A screen that only renders is not a finished feature.
+
+## Last full run: R1.13 (2026-11-06, Mac, uncommitted working tree)
+
+| Gate | Result |
+|---|---|
+| Secrets (`npm run secrets:check`) | Pass, 302 files |
+| Typecheck / ESLint / Prettier (root) | Pass |
+| Contracts (Vitest) | 9/9 |
+| API unit and HTTP (Vitest + Supertest) | 50/50 |
+| Database (`hospitalos_test`) | 71/71 in 8 files |
+| Migrations | 5 forward-only migrations, applied to `hospitalos_dev` and `hospitalos_test`; idempotency and edited-migration refusal covered by the database suite |
+| Mobile typecheck / ESLint / Prettier | Pass, locally **and in a clean clone** (CI conditions) |
+| Mobile Jest | 232/232 in 16 suites (KI-15 act warnings remain) |
+| Isolation (`npm run iso:check`) | Pass |
+| Root `npm audit --audit-level=high` | 0 high, 0 critical (13 moderate, development tools, KI-10) |
+| Mobile audit gate (`npm run mobile:audit`) | Pass: 5 high from 2 classified advisories (KI-12), none unclassified |
+| Expo Doctor | 20/21 (patch updates deferred to 2026-11-19, KI-9) |
+| Android export | 1,523 modules (Hermes) |
+| `git diff --check` | Pass |
+| Live API, 11 roles (`hospitalos_dev`) | 11/11 |
+| Live outpatient journey (`hospitalos_dev`) | 59/59 checks |
+| Web build, 11 roles through the UI (Playwright, 360 × 640) | 11/11 (web preview, **not** Android) |
+| Android emulator 360 × 640 and 411 × 891 | **Not run** (no Android SDK) |
+| Physical Android phone | **Not run** |
+| Release gate | **Not met** |

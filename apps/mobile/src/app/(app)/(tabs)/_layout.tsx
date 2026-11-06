@@ -1,11 +1,13 @@
 import { Tabs } from 'expo-router';
 
+import { CustomTabBar } from '@/components/CustomTabBar';
 import { Icon, type IconName } from '@/components/Icon';
 import { colors, typography } from '@/theme/tokens';
 
-const TABS: readonly { name: string; title: string; icon: IconName }[] = [
+const TABS: readonly { name: string; title: string; label?: string; icon: IconName }[] = [
   { name: 'home', title: 'Home', icon: 'home' },
-  { name: 'queue', title: 'Work Queue', icon: 'queue' },
+  // Visible label shortened so it never truncates at 360 dp; screen readers hear the full name.
+  { name: 'queue', title: 'Work Queue', label: 'Queue', icon: 'queue' },
   { name: 'search', title: 'Search', icon: 'search' },
   { name: 'inbox', title: 'Inbox', icon: 'inbox' },
   { name: 'profile', title: 'Profile', icon: 'profile' },
@@ -18,6 +20,7 @@ const TABS: readonly { name: string; title: string; icon: IconName }[] = [
 export default function TabsLayout() {
   return (
     <Tabs
+      tabBar={(props) => <CustomTabBar {...props} />}
       backBehavior="firstRoute"
       screenOptions={{
         headerShown: false,
@@ -35,6 +38,7 @@ export default function TabsLayout() {
           name={tab.name}
           options={{
             title: tab.title,
+            tabBarLabel: tab.label ?? tab.title,
             tabBarAccessibilityLabel: tab.title,
             tabBarIcon: ({ color, size }) => <Icon name={tab.icon} color={color} size={size} />,
           }}

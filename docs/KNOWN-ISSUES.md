@@ -17,7 +17,7 @@ Open problems, with how and when each is resolved. Closed items move to the buil
 | KI-11 | npm 11 blocked the install scripts of `esbuild` (0.18.20, 0.25.12, 0.28.2) and `fsevents` 2.3.3 (not yet approved with `npm install-scripts approve`) | None found: `tsx` runs and all API tests pass without them | Leave blocked. Approve only if a tool is shown to need them, as a separate approval |
 | KI-12 | `npm audit` in `apps/mobile` (2026-11-05): **0 critical, 5 high**, 14 moderate, 9 low. The 5 high packages come from 2 high advisories; full classification below the table | One production path (crafted `hospitalos://` link can hang link parsing on the device: denial of service, no data exposure); one development-only path | CI blocks on any new unclassified high/critical (`npm run mobile:audit`). Remediation below; nothing changed in the app in phase 1.1 |
 | KI-13 | `postgres:17.11-bookworm` (digest `665dc7b3…`) is now cached locally, alongside the images from KI-5 and the reference project | Disk space only (about 645 MB) | Needed while the local database runs |
-| KI-14 | The CI workflow has not run yet. It needs a push of the uncommitted phase 1.1 changes | CI results unknown until then | Check the first run on GitHub after the owner approves the commit and push |
+| KI-14 | ~~CI had not run~~ **Updated 2026-11-06 (R1.13):** CI has run. Phase 1.1 passed; the R1 commit `fad45d5` and the `main` merge `fc96e03` **failed** in the mobile job (typed-route `@ts-expect-error` lines, see build log) | `main` on GitHub carries a red CI run until the fix is pushed | Fixed locally (uncommitted); confirm the next CI run after the owner approves the commit and push |
 
 ### KI-12 classification (mobile high-severity findings, 2026-11-05)
 
@@ -84,7 +84,7 @@ installed until Expo SDK 58, and in-app navigation built from the app's own valu
 | # | Issue | Impact | Resolution |
 |---|---|---|---|
 | KI-15 | Mobile tests print React "not wrapped in act(…)" warnings from asynchronous form updates | Noise only; every test passes | Wrap the async submissions in `act` in the tests when touching them next |
-| KI-16 | No Super Admin exists in `hospitalos_dev` yet: `npm run api:bootstrap-admin -- dev` is interactive and was not run by the agent | Nobody can sign in to the development API until it is run (or demo accounts are seeded with `npm run db:seed:demo`) | Owner runs one of the two commands |
+| KI-16 | No real (non-demo) Super Admin exists in `hospitalos_dev`: `npm run api:bootstrap-admin -- dev` is interactive and was not run by the agent. The 11 demo accounts (including `demo-sa`) exist and were rotated in R1.13 | Development sign-in works with the demo accounts only | Owner runs the bootstrap when a named development administrator is wanted |
 
 | # | Issue | Impact | Resolution |
 |---|---|---|---|
@@ -93,3 +93,23 @@ installed until Expo SDK 58, and in-app navigation built from the app's own valu
 | KI-19 | Doctor call requests (nursing) are not built: the roadmap places them with messaging in R7 | Nurses cannot page a doctor from the app in R1 | R7 |
 | KI-20 | Schedules, leave, fees, prices and catalogue have management APIs (audited) but no mobile screens yet | Changes need the API (or the synthetic seed) in R1 | R2 administration screens |
 | KI-21 | Release 1 gate not met: no Android emulator or physical-device run of the journey (see KI-1) | Release 1 cannot be signed off | Run the device checklist when an Android SDK or phone is available |
+
+**KI-12 update (2026-11-06, R1.13): fixed in the app bundle, still installed.** Metro and Jest
+resolve `decode-uri-component` to `apps/mobile/shims/decode-uri-component.js`, a linear-time
+decoder with the same output for valid input (tests compare it with the original). Measured with the
+installed original: 3,002 characters → 10.1 s; through the shim (Expo Router's `query-string`):
+under 100 ms. The Android export's Hermes bytecode contains the shim and none of the original's
+functions. The package is still in `node_modules`, so `npm audit` still reports 5 high (2
+advisories); the exception entry remains (review 2026-12-31) and is removed with Expo SDK 58. The
+incoming-link guard stays as defence in depth. There is no native component in this advisory: the
+native layer only registers the `hospitalos:` scheme and passes the link string to JavaScript.
+
+| # | Issue | Impact | Resolution |
+|---|---|---|---|
+| KI-22 | ~~Tab bar truncated "Work Queue" at 360 dp~~ **Resolved 2026-11-06 (UI redesign):** custom floating tab bar, visible label "Queue", accessible name "Work Queue" | — | Closed |
+| KI-23 | Only one demo LAB account exists, so "verify by a different person" was exercised with `demo-sa` (which holds `lab_result:verify`); the database suite covers two technicians | None for correctness | Add a second LAB account through Staff accounts when needed |
+
+| # | Issue | Impact | Resolution |
+|---|---|---|---|
+| KI-24 | Metro's file watcher does not see edits on the development Mac (no watchman; fsevents install script blocked, KI-11) | The Expo dev server must be restarted to show changes | Install watchman or approve fsevents, as a separate approved change |
+| KI-25 | The redesigned UI has been checked on the web preview only; blur, Reanimated springs, keyboard behaviour and TalkBack are unverified on Android | Android visual sign-off pending | Android emulator and phone run (KI-1) |
