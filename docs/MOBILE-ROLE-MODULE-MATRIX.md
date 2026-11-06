@@ -8,7 +8,7 @@ the reference; only this product's release column changed (`day_close:run` to R2
 The permission model is the reference's, unchanged: **11 roles and 88 permissions**, a user's
 permissions being the union of their roles, re-read on every request. The grid in section 3 was
 generated from the reference's `packages/shared/src/permissions.ts` (2026-11-05), not typed by
-hand. In this repository the same list will live once in `packages/shared` and a test will fail if
+hand. In this repository the same list lives once in `packages/contracts` (decision D1) and a test fails if
 it, this document or the seed ever disagree.
 
 **Where permissions come from at run time.** The signed-in user's permissions are read from the

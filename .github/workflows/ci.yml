@@ -1,0 +1,125 @@
+# HospitalOS Mobile CI. Runs on every push and pull request; changes nothing outside the runner.
+# Actions are pinned to full commit SHAs (verified with `git ls-remote` on 2026-11-05).
+# No repository secrets are used: database credentials are random, generated per run by
+# `npm run env:init`, masked in logs and discarded with the runner.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: API, contracts and database
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js (from .nvmrc)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Secret scan
+        run: npm run secrets:check
+
+      - name: Install (root workspace)
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Prettier
+        run: npm run format:check
+
+      - name: Unit and HTTP tests (contracts, API)
+        run: npm test
+
+      - name: Dependency audit (fails on high or critical)
+        run: npm run audit
+
+      - name: Generate throwaway database credentials
+        run: |
+          npm run env:init
+          # Mask every value so nothing from .env can appear in the log.
+          while IFS='=' read -r name value; do
+            case "$name" in ''|'#'*) continue ;; esac
+            echo "::add-mask::$value"
+          done < .env
+
+      - name: Check Compose isolation
+        run: npm run iso:check
+
+      - name: Start disposable PostgreSQL 17
+        run: npm run db:up
+
+      - name: Create databases and least-privilege roles (twice, to prove it is re-runnable)
+        run: |
+          npm run db:init
+          npm run db:init
+
+      - name: Apply migrations (twice, to prove they are idempotent)
+        run: |
+          npm run db:migrate
+          npm run db:migrate:test
+          npm run db:migrate
+          npm run db:migrate:test
+
+      - name: Database integration tests (hospitalos_test only)
+        run: npm run test:db
+
+      - name: Stop PostgreSQL
+        if: always()
+        run: docker compose -p hospitalos-mobile down --volumes
+
+  mobile:
+    name: Mobile app
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js (from .nvmrc)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - name: Install (mobile, its own lockfile)
+        run: npm ci
+
+      - name: Typecheck, lint, Prettier and Jest
+        run: npm run check
+
+      # Report-only until the owner approves the Expo patch upgrade (docs/KNOWN-ISSUES.md KI-9).
+      - name: Expo Doctor
+        continue-on-error: true
+        run: npx expo-doctor
+
+      # Report-only until the mobile dependency upgrade is approved (docs/KNOWN-ISSUES.md KI-12).
+      - name: Dependency audit
+        continue-on-error: true
+        run: npm audit --audit-level=high

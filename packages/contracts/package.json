@@ -1,0 +1,18 @@
+{
+  "name": "@hospitalos/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The single shared contract between the HospitalOS API and app: roles, the 88 permissions, API schemas and error codes.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  }
+}

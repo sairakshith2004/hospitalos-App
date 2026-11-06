@@ -50,13 +50,19 @@ apps/
     src/middleware/       authenticate, requirePermission, rateLimit, errorHandler
     src/modules/<domain>/ *.routes · *.service · *.repo · *.schemas · *.test
 packages/
-  shared/                 roles, the 88 permissions, role → permission map, Zod request/response
+  contracts/              THE single shared package (decision D1): roles, the 88 permissions, role →
+                          permission map, Zod request/response
                           schemas, enums: imported by both apps so they can never disagree
 docker-compose.yml        PostgreSQL 17 (+ Mailpit for reset codes; LiveKit in R8)
 docs/
 ```
 
-Turning the repository into npm workspaces (root `package.json` with `apps/*` and `packages/*`)
+**Workspace migration (decided in phase 1.1).** Phase 1.1 creates the root workspace with
+`apps/api` and `packages/*` only. Expo's own workspace detection was tested: with `apps/mobile`
+left out of the workspace list, Metro keeps `apps/mobile` as its root and the app's lockfile is
+untouched. The mobile app joins the workspace in phase 1.2, when it first imports
+`@hospitalos/contracts`, as its own verified step. The original plan text follows for reference:
+turning the repository into npm workspaces (root `package.json` with `apps/*` and `packages/*`)
 happens in phase 1.1 and needs approval, because it moves the mobile app's lockfile to the root.
 Expo SDK 57 supports workspaces through Metro's automatic monorepo configuration.
 
@@ -236,8 +242,8 @@ just before 15 minutes and refused just after) and at a changed value (MA-12, MA
 
 | Data | Owner and source of truth | How the app gets it |
 |---|---|---|
-| Staff accounts, roles, role grants | Database (`users`, `roles`, `user_roles`, `role_permissions`), seeded from `packages/shared` | `GET /v1/auth/me` returns the signed-in user and their permissions |
-| Permission catalogue (the 88 codes) | `packages/shared` (code), mirrored into the `permissions` table by the seed; a test fails if they differ | Compiled into both apps; the app uses it only to decide what to show |
+| Staff accounts, roles, role grants | Database (`users`, `roles`, `user_roles`, `role_permissions`), seeded from `packages/contracts` | `GET /v1/auth/me` returns the signed-in user and their permissions |
+| Permission catalogue (the 88 codes) | `packages/contracts` (code), mirrored into the `permissions` table by the seed; a test fails if they differ | Compiled into both apps; the app uses it only to decide what to show |
 | Departments, locations, doctors, schedules, fees, settings | Database, synthetic seed until R2 screens exist | API read endpoints |
 | Medicine catalogue, batches, stock, lab tests, service prices | Database, synthetic seed until R3/R4 screens exist | API read endpoints |
 | Patients, appointments, encounters, prescriptions, dispensings, lab orders, invoices, payments, corrections | Database, created through the API | API |
@@ -266,9 +272,9 @@ just before 15 minutes and refused just after) and at a changed value (MA-12, MA
 |---|---|
 | Base path and versioning | `/v1`. Breaking changes need `/v2`; additive changes don't. |
 | App-version check (R1, phase 1.2) | The app sends `X-App-Version` and `X-App-Platform` on every request. `GET /v1/app/version-policy` (public) returns the minimum and latest version per platform, from system settings `app_min_version_android`, `app_min_version_ios`, `app_latest_version_android`, `app_latest_version_ios` (`system_settings:manage`, SA; changes audited as `settings.changed`). Below the minimum, every route except health, the version policy and sign-out answers `426 APP_UPDATE_REQUIRED` and the app shows a blocking update screen; below the latest, a dismissible banner. A missing or malformed version header is treated as below the minimum once enforcement is switched on. Tests AV-1 to AV-4. |
-| Schemas | Every request and response body has a Zod schema in `packages/shared`. The API validates input with it; the app parses responses with it and treats a mismatch as an error. |
+| Schemas | Every request and response body has a Zod schema in `packages/contracts`. The API validates input with it; the app parses responses with it and treats a mismatch as an error. |
 | Authentication | `Authorization: Bearer <access token>` on every route except sign-in, refresh, forgot and reset. Cookies are ignored. |
-| Errors | `{ "error": { "code", "message", "requestId", "fields"? } }`. Stable `code` values (`UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION_FAILED`, `CONFLICT`, `STALE_VERSION`, `PASSWORD_CHANGE_REQUIRED`, `PAYMENT_EXCEEDS_BALANCE`, `PRESCRIPTION_EXPIRED`, `CORRECTION_PENDING`, `APP_UPDATE_REQUIRED`, `RATE_LIMITED`, …) listed in `packages/shared`. 403 and 404 never say why. |
+| Errors | `{ "error": { "code", "message", "requestId", "fields"? } }`. Stable `code` values (`UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION_FAILED`, `CONFLICT`, `STALE_VERSION`, `PASSWORD_CHANGE_REQUIRED`, `PAYMENT_EXCEEDS_BALANCE`, `PRESCRIPTION_EXPIRED`, `CORRECTION_PENDING`, `APP_UPDATE_REQUIRED`, `RATE_LIMITED`, …) listed in `packages/contracts`. 403 and 404 never say why. |
 | Pagination | Cursor based (`?cursor=&limit=`, limit ≤ 50); patient search capped at 20 rows. |
 | Concurrency | `version` in responses and in update bodies; mismatch → `409 STALE_VERSION`. |
 | Idempotency | `Idempotency-Key` (UUID) required on booking, check-in, dispensing, payments, and later credit notes, correction decisions and refunds. |
@@ -282,7 +288,7 @@ just before 15 minutes and refused just after) and at a changed value (MA-12, MA
 
 | Data | Development and test databases | Any other environment (pilot, production) |
 |---|---|---|
-| 11 roles, 88 permissions, role grants | Seeded from `packages/shared` | Seeded the same way (reference data, not demo data) |
+| 11 roles, 88 permissions, role grants | Seeded from `packages/contracts` | Seeded the same way (reference data, not demo data) |
 | Hospital reference data (departments, doctors, schedules, catalogues, prices) | Synthetic seed | Synthetic seed for a pilot; entered through management screens later |
 | First Super Admin | Bootstrap command or demo seed | **Bootstrap command only** |
 | Other staff accounts | Demo accounts, one or more per role | **Authorized administration only**: HR `user:create` creates the login, SA `user_role:assign` grants roles, from R1 (MD-23); never seeded |
@@ -334,8 +340,8 @@ the other's data. Every name and port below was compared with the reference's
 | Resource | Reference (`hospital-management-system`) | This product (`hospitalos-App`) |
 |---|---|---|
 | Compose project name | `hospitalos` | `hospitalos-mobile` (set explicitly with `name:`) |
-| Compose network | `hospitalos_default` | `hospitalos-mobile_default` |
-| PostgreSQL volume | `hospitalos_hms_pgdata` | `hospitalos-mobile_pgdata` |
+| Compose network | `hospitalos_default` | `hospitalos-mobile-network` |
+| PostgreSQL volume | `hospitalos_hms_pgdata` | `hospitalos-mobile-pgdata` |
 | PostgreSQL host port | `127.0.0.1:5432` | `127.0.0.1:5433` |
 | Databases | `hms_dev`, `hms_test` | `hospitalos_dev`, `hospitalos_test` |
 | Database users | `hms_owner`, `hms_app` (+ Docker superuser from its `.env`) | `hos_owner`, `hos_app` (+ our own Docker superuser) |

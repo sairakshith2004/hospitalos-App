@@ -15,7 +15,7 @@ Decisions referenced here (MD-1 to MD-23) are in the
 2. **Separate approval** even inside an approved phase for: installing packages, creating or
    applying migrations, seeds, credentials, and anything that contacts an outside service.
 3. **Build:** API, database and mobile screens for the phase together, with their tests. Rules live
-   once in `packages/shared`. Screens read their data from the API (MD-12).
+   once in `packages/contracts` (decision D1). Screens read their data from the API (MD-12).
 4. **Verify:** the phase's acceptance criteria plus the standing gate (section 2).
 5. **Document:** README, these documents and the status table (section 5).
 6. **Gate:** report results, known limits and anything needing human review; commit only when the
@@ -40,7 +40,7 @@ Device results are reported only when a device or emulator was actually used.
 | Phase | Name | Depends on | Delivers | Acceptance criteria |
 |---|---|---|---|---|
 | 1.0 | Mobile foundation alignment | Android emulator available (U1); no API needed | See section 3.1 | F0-1 to F0-6; all existing checks pass; Android emulator and physical-phone checklist done where possible (U1) |
-| 1.1 | Workspace and API foundation | 1.0 | npm workspaces; `packages/shared`; `apps/api` (Express 5, Zod env, pino with redaction, request IDs, error envelope, OpenAPI from shared schemas, `/v1/health`, `/v1/ready`); Docker Compose project `hospitalos-mobile` with PostgreSQL 17 on 5433 and Mailpit on 1026/8026; `hos_owner` / `hos_app`; migration runner; CI **ISO-0 first** (live Docker check before any database is created), then ISO-1 to ISO-4; root `.gitignore` for `apps/api/.env` added before the file exists; API refuses to start on a database other than `hospitalos_*` or as a user other than `hos_app`; refuses missing or placeholder secrets naming the setting only; `/v1/ready` fails when the database is down; log capture finds no redacted field; fresh-database migration in CI |
+| 1.1 | Workspace and API foundation | 1.0 | npm workspaces (`apps/api`, `packages/*`; the mobile app stays outside until 1.2); `packages/contracts` (D1); `apps/api` (Express 5, Zod env, pino with redaction, request IDs, error envelope, OpenAPI from shared schemas, `/v1/health`, `/v1/ready`); Docker Compose project `hospitalos-mobile` with PostgreSQL 17 on 5433 and Mailpit on 1026/8026; `hos_owner` / `hos_app`; migration runner; CI **ISO-0 first** (live Docker check before any database is created), then ISO-1 to ISO-4; root `.gitignore` for `apps/api/.env` added before the file exists; API refuses to start on a database other than `hospitalos_*` or as a user other than `hos_app`; refuses missing or placeholder secrets naming the setting only; `/v1/ready` fails when the database is down; log capture finds no redacted field; fresh-database migration in CI |
 | 1.2 | Identity, sessions, audit | 1.1 | Users, employees, roles, permissions, user roles, audit log (append-only trigger), `auth_sessions`, `auth_tokens`, `password_reset_codes`; sign-in, refresh, sign-out, me, change password, forced change, forgot and reset code; lockout and rate limits; configurable security limits with allowed ranges (architecture §5.6); **app-version check** (`X-App-Version`, version policy, `426`); `requirePermission`; **seed of the 11 roles and 88 permissions in every environment**; **audited Super Admin bootstrap and operator password reset** (command line); **demo accounts with disposable random credentials in development and test only**; mobile sign-in, forgot-password, change-password screens and session manager; **local demo session retired** (development builds sign in to seeded accounts) | MA-1 to MA-14 (with boundary tests); AV-1 to AV-4; SE-2, SE-4, SE-6; AD-8; ACC-1 to ACC-5; demo accounts have synthetic work emails; the operator reset works for an account without one; seeded grants equal the matrix (test); app permissions come only from `/v1/auth/me` (DO-4) |
 | 1.2b | Minimal staff-account administration | 1.2 | HR adds a staff member and login (temporary password, forced change); SA grants and revokes roles; ADM/SA disable and re-enable accounts; reasons and audit on every change; mobile screens Add staff member, Staff access, Disable account (MD-23, architecture §6.3) | ACC-6 to ACC-8; AD-2 (disable/enable part), AD-3, AD-4, AD-8 |
 | 1.3 | Hospital reference data | 1.2 | Settings, departments, locations, doctor profiles, schedules, exceptions, holidays, fees, service catalogue and prices, medicine catalogue with ingredients and batches, lab tests and parameters: tables, **synthetic seed in the database**, read endpoints | Seed repeatable and synthetic; settings keys each owned by one permission; RX-2 product distinctions in the seed; DO-1 (every list the journey needs is served by the API) |
@@ -144,7 +144,9 @@ unlock, offline writes ([scope §7](MOBILE-PRODUCT-SCOPE.md#7-potential-future-e
 | Expo foundation, engineering baseline, design system, navigation shell (former steps 1–5) | Done; committed `b4dbe8d`; Android device check pending |
 | Planning documents (this set) | Revised draft, awaiting owner review |
 | Phase 1.0 | **Implemented on branch `phase/1.0-mobile-alignment`, uncommitted, awaiting owner review** (2026-11-05). Automated checks pass; Android emulator and physical-device checks **not run** (no Android SDK on this Mac): see U1 |
-| Phases 1.1 to 1.12, R2 to R9 | Planned |
+| Phase 1.0 merge | Merged into `main` on GitHub (PR #3, merge commit `c7e8910`, 2026-11-05) |
+| Phase 1.1 | **Complete locally, awaiting owner review** (2026-11-05) on branch `phase/1.1-backend-foundation`: API, isolated PostgreSQL 17 container, `hospitalos_dev` and `hospitalos_test`, `hos_owner` and `hos_app`, migration 0000 in both, database tests and CI workflow. Final changes uncommitted. See the build log |
+| Phases 1.2 to 1.12, R2 to R9 | Planned |
 
 ## 6. Packages expected to need approval
 
@@ -186,6 +188,8 @@ All decided by the owner on 2026-11-05.
 | MD-20 | Roles and 88 permissions seeded everywhere; no default or shared passwords; audited SA bootstrap; other accounts by authorized administration; demo accounts only in development and test with disposable credentials | Architecture §6.3 |
 | MD-21 | End-of-day job is an addition beyond the built reference, delivered in R2, not blocking the R1 pilot | Workflows §6 |
 | MD-22 | Release 1 billing scope; complete credit-note, approval, rejection and refund workflows in R3; SA and FIN as in the matrix | Scope §4 |
+| D1 (1.1) | One canonical shared package, `packages/contracts` (roles, 88 permissions, schemas, validation contracts, common types); no `packages/shared`; the backend alone decides authorization | Architecture §2, ARCHITECTURE-DECISIONS.md AD-M-009 |
+| D2 (1.1) | End-of-day job in Release 2 as an addition beyond the built reference; its rules are reviewed before R2 | Workflows §6, ARCHITECTURE-DECISIONS.md AD-M-010 |
 | MD-23 | Minimal staff-account administration in R1 (O7 approved with Phase 1.0) | Architecture §6.3, roadmap 1.2b |
 | — | Out of feature parity: inpatient care, insurance, imaging, SMS, payroll, shift rosters, nursing notes and care tasks, and the other items in scope §7 | Scope §7 |
 
