@@ -7,6 +7,7 @@ import {
   healthResponseSchema,
   readyResponseSchema,
 } from '@hospitalos/contracts';
+import pg from 'pg';
 import { afterAll, describe, expect, it } from 'vitest';
 
 /**
@@ -70,6 +71,27 @@ describe('API server process', () => {
     const missing = await fetch(`${base}/api/v1/nothing-here`);
     expect(missing.status).toBe(404);
     expect(errorEnvelopeSchema.parse(await missing.json()).error.requestId).toBeTruthy();
+
+    // The database closes the server's pooled connections (as on a restart). The process must
+    // survive, keep answering, and reconnect for readiness.
+    const killer = new pg.Client({
+      connectionString: process.env.TEST_DATABASE_URL,
+      application_name: 'hospitalos-test-killer',
+    });
+    await killer.connect();
+    const terminated = await killer.query<{ count: string }>(
+      `select count(*) from (select pg_terminate_backend(pid) from pg_stat_activity
+        where application_name = 'hospitalos-api' and usename = 'hos_app'
+          and datname = 'hospitalos_test' and pid <> pg_backend_pid()) t`,
+    );
+    await killer.end();
+    expect(Number(terminated.rows[0]?.count)).toBeGreaterThan(0);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(child.exitCode).toBeNull();
+    expect((await fetch(`${base}/api/health`)).status).toBe(200);
+    expect((await fetch(`${base}/api/ready`)).status).toBe(200);
+    expect(output).toContain('idle database connection lost');
+    expect(output).toContain('"pgErrorCode":"57P01"');
 
     const exited = once(child, 'exit');
     child.kill('SIGTERM');

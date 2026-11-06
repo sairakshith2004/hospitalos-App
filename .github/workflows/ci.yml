@@ -119,7 +119,8 @@ jobs:
         continue-on-error: true
         run: npx expo-doctor
 
-      # Report-only until the mobile dependency upgrade is approved (docs/KNOWN-ISSUES.md KI-12).
-      - name: Dependency audit
-        continue-on-error: true
-        run: npm audit --audit-level=high
+      # Blocks on any high or critical advisory not classified in scripts/mobile-audit-exceptions.json
+      # (docs/KNOWN-ISSUES.md KI-12). Classified ones are printed as warnings, not hidden.
+      - name: Dependency audit (classified high findings only)
+        working-directory: .
+        run: npm run mobile:audit

@@ -121,3 +121,41 @@ upstream so it can't push to `main` by mistake.
   or critical (13 moderate, KI-10). Mobile unchanged (no file under `apps/mobile` modified):
   typecheck, ESLint, Prettier, Jest 94/94; Expo Doctor 20/21 (KI-9); mobile audit 5 high (KI-12).
 - Not run: the CI workflow itself (runs on the next push); Android emulator or device (KI-1).
+
+**Phase 1.1 owner review (2026-11-05, after commit `059e220`; first CI run passed both jobs).**
+
+- AD-M-015 and AD-M-016 approved by the owner (wording updated). The report-only mobile audit step
+  was replaced with `npm run mobile:audit`, which blocks CI on any high or critical advisory not
+  classified in `scripts/mobile-audit-exceptions.json` and prints classified ones as warnings;
+  verified to fail when an exception is removed.
+- Five mobile high findings classified (KI-12): two advisories, one production path
+  (`decode-uri-component` through Expo Router link parsing), one development-only (`zod`). Tested in
+  scratch copies only: the `decode-uri-component` 0.5.1 override breaks parsing (rejected); the Expo
+  patch upgrade passes typecheck, ESLint, Jest 94/94, Expo Doctor 21/21 and the Android export, and
+  clears `@expo/cli`. Not applied: needs the owner's approval as a mobile dependency change.
+- Re-verified: Git root, remote, branch; outer folder untouched; databases, roles, grants and live
+  `hos_app` refusals; `/api/health` and `/api/ready` 200; SIGTERM exit 0; `hms_*` refused by API
+  start-up, allow-list and migration tool; reference Docker resources identical to the baseline.
+- Checks: secrets (186 files), typecheck, ESLint, Prettier, contracts 10/10, API 38/38, database
+  19/19, iso:check, root audit, mobile audit gate, mobile typecheck/ESLint/Prettier, Jest 94/94,
+  `git diff --check` pass; Expo Doctor 20/21 (KI-9). Database stopped with `npm run db:down`;
+  volume kept.
+
+**Phase 1.1 final review, day 2 (2026-11-06).**
+
+- Verified: Git root, remote, branch, clean history (`059e220` local and remote; `origin/main` at
+  `c7e8910`, 2 commits behind the branch). CI run 42035850249 on `059e220` passed both jobs; its
+  annotations show the two report-only mobile steps (Expo Doctor, old mobile audit) exited 1 as
+  expected. The new blocking mobile audit gate has not run on GitHub yet.
+- **Bug found and fixed:** stopping the database while the API ran crashed the API (unhandled `error`
+  event from the `pg` pool when PostgreSQL closed an idle connection, code `57P01`), so health and
+  readiness both stopped answering. `createPool` now always listens for idle-connection errors; the
+  server logs them with the PostgreSQL code only. After the fix: database down gives
+  `/api/ready` 503 `NOT_READY` and `/api/health` 200; database back gives 200 again without a
+  restart; SIGTERM exit 0. New tests (unit: the pool survives and reports the error; database: the
+  real server survives its connections being terminated and recovers) fail without the fix.
+- KI-12 re-checked against the registry and measured (see the KI-12 update).
+- Owner decisions: Expo patch and `zod` override deferred to 2026-11-19 (package-age policy);
+  incoming-link guard approved as the first task of phase 1.2 (AD-M-017); commit and push to
+  `phase/1.1-backend-foundation` approved; no merge into `main`. Not approved for production
+  patient data or release while KI-1 and KI-12 remain open.

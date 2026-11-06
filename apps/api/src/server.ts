@@ -24,7 +24,10 @@ try {
 }
 
 const logger = createLogger(config.LOG_LEVEL);
-const pool = createPool(config.DATABASE_URL, config.DATABASE_POOL_MAX);
+const pool = createPool(config.DATABASE_URL, config.DATABASE_POOL_MAX, (error) => {
+  // Only the PostgreSQL error code: messages can echo connection details.
+  logger.warn({ pgErrorCode: error.code ?? 'unknown' }, 'idle database connection lost');
+});
 const expectations = { expectedUser: 'hos_app', allowedDatabases: config.DATABASE_ALLOWED_NAMES };
 const expectedMigrations = loadMigrations(
   fileURLToPath(new URL('./db/migrations', import.meta.url)),

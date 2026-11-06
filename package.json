@@ -31,6 +31,7 @@
     "secrets:check": "node scripts/secrets-check.mjs",
     "audit": "npm audit --audit-level=high",
     "mobile:check": "npm --prefix apps/mobile run check",
+    "mobile:audit": "node scripts/mobile-audit.mjs",
     "check": "npm run secrets:check && npm run typecheck && npm run lint && npm run format:check && npm test"
   },
   "devDependencies": {
