@@ -12,56 +12,44 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import {
+  ActionRow,
   AppText,
+  AppointmentCard,
   Banner,
   DangerButton,
+  Divided,
   EmptyState,
   GlassCard,
   ListRow,
+  PatientCard,
   PrimaryButton,
   QueryBoundary,
   SecondaryButton,
   SectionHeader,
+  SegmentedControl,
   StatusChip,
   TextField,
+  statusTone,
 } from '@/components';
 import type { Permission } from '@/features/access/permissions';
 import { useApiMutation, useApiQuery } from '@/services/api/hooks';
 import { describeError } from '@/services/api/errors';
 import { formatPaise, hospitalTime, humanize } from '@/services/format';
-import { borders, colors, spacing } from '@/theme/tokens';
+import { spacing, type Tone } from '@/theme/tokens';
 
 const QUEUE_REFRESH = 15_000;
 
-function statusTone(status: string) {
-  if (status === 'checked_in' || status === 'issued' || status === 'resulted')
-    return 'warning' as const;
-  if (
-    status === 'in_consultation' ||
-    status === 'in_process' ||
-    status === 'partially_dispensed' ||
-    status === 'partially_paid'
-  )
-    return 'primary' as const;
-  if (
-    status === 'completed' ||
-    status === 'verified' ||
-    status === 'dispensed' ||
-    status === 'paid'
-  )
-    return 'success' as const;
-  if (status === 'cancelled' || status === 'no_show') return 'danger' as const;
-  return 'neutral' as const;
-}
+const KIND_LABEL: Readonly<Record<Appointment['kind'], string>> = {
+  scheduled: 'Scheduled',
+  walk_in: 'Walk-in',
+  follow_up: 'Follow-up',
+};
+const DANGER: Tone = 'danger';
 
 function Rows({ children }: { children: React.ReactNode[] }) {
   return (
-    <GlassCard padding="none" elevation="low">
-      {children.map((child, index) => (
-        <View key={index} style={index > 0 && styles.divider}>
-          {child}
-        </View>
-      ))}
+    <GlassCard padding="none" elevation="low" enterIndex={1}>
+      <Divided>{children}</Divided>
     </GlassCard>
   );
 }
@@ -92,24 +80,29 @@ function AppointmentActions({ appointment }: { appointment: Appointment }) {
   const run = (promise: Promise<unknown>) =>
     promise.then(() => setError(null)).catch((e: unknown) => setError(describeError(e)));
 
+  const canAct = appointment.status === 'booked' || appointment.status === 'checked_in';
   return (
-    <View style={styles.actions}>
-      {appointment.status === 'booked' && !appointment.didNotArrive ? (
-        <PrimaryButton
-          label="Check in"
-          loading={checkIn.isPending}
-          onPress={() => void run(checkIn.mutateAsync(appointment.id))}
-        />
-      ) : null}
-      {appointment.status === 'booked' && appointment.didNotArrive ? (
-        <SecondaryButton
-          label="Mark no-show"
-          loading={noShow.isPending}
-          onPress={() => void run(noShow.mutateAsync(appointment.id))}
-        />
-      ) : null}
-      {appointment.status === 'booked' || appointment.status === 'checked_in' ? (
-        <SecondaryButton label="Cancel" onPress={() => setCancelling(true)} />
+    <View style={styles.cardActions}>
+      {canAct ? (
+        <ActionRow>
+          {appointment.status === 'booked' && !appointment.didNotArrive ? (
+            <PrimaryButton
+              label="Check in"
+              fullWidth
+              loading={checkIn.isPending}
+              onPress={() => void run(checkIn.mutateAsync(appointment.id))}
+            />
+          ) : null}
+          {appointment.status === 'booked' && appointment.didNotArrive ? (
+            <SecondaryButton
+              label="Mark no-show"
+              fullWidth
+              loading={noShow.isPending}
+              onPress={() => void run(noShow.mutateAsync(appointment.id))}
+            />
+          ) : null}
+          <SecondaryButton label="Cancel" fullWidth onPress={() => setCancelling(true)} />
+        </ActionRow>
       ) : null}
       {error !== null ? <Banner tone="danger" title="Not done" message={error} /> : null}
       {cancelling ? (
@@ -150,10 +143,18 @@ function ReceptionQueue() {
         title="Today's appointments"
         action={{ label: 'Follow-ups', onPress: () => router.push('/follow-ups') }}
       />
-      <View style={styles.actions}>
-        <PrimaryButton label="Register patient" onPress={() => router.push('/patients/register')} />
-        <SecondaryButton label="Find patient" onPress={() => router.navigate('/search')} />
-      </View>
+      <ActionRow>
+        <PrimaryButton
+          label="Register patient"
+          fullWidth
+          onPress={() => router.push('/patients/register')}
+        />
+        <SecondaryButton
+          label="Find patient"
+          fullWidth
+          onPress={() => router.navigate('/search')}
+        />
+      </ActionRow>
       <QueryBoundary query={query} loadingLabel="Loading appointments">
         {(data) =>
           data.items.length === 0 ? (
@@ -165,22 +166,23 @@ function ReceptionQueue() {
           ) : (
             <Rows>
               {data.items.map((a) => (
-                <View key={a.id} style={styles.item}>
-                  <ListRow
-                    title={`${a.tokenNo !== null ? `#${a.tokenNo} · ` : ''}${a.patient.name}`}
-                    subtitle={`${a.patient.mrn} · ${a.doctor.name}${a.slotStart ? ` · ${hospitalTime(a.slotStart)}` : ' · walk-in'}`}
-                    trailing={
-                      <StatusChip
-                        label={a.didNotArrive ? 'Did not arrive' : humanize(a.status)}
-                        tone={a.didNotArrive ? 'danger' : statusTone(a.status)}
-                      />
-                    }
-                    onPress={() =>
-                      router.push({ pathname: '/patients/[id]', params: { id: a.patient.id } })
-                    }
-                  />
+                <AppointmentCard
+                  key={a.id}
+                  time={a.slotStart ? hospitalTime(a.slotStart) : 'Walk-in'}
+                  token={a.tokenNo}
+                  patientName={a.patient.name}
+                  mrn={a.patient.mrn}
+                  doctorName={a.doctor.name}
+                  kind={KIND_LABEL[a.kind]}
+                  status={a.status}
+                  statusLabel={a.didNotArrive ? 'Did not arrive' : humanize(a.status)}
+                  {...(a.didNotArrive ? { tone: DANGER } : {})}
+                  onPress={() =>
+                    router.push({ pathname: '/patients/[id]', params: { id: a.patient.id } })
+                  }
+                >
                   <AppointmentActions appointment={a} />
-                </View>
+                </AppointmentCard>
               ))}
             </Rows>
           )
@@ -224,15 +226,20 @@ function ClinicalQueue({ nurse }: { nurse: boolean }) {
           ) : (
             <Rows>
               {data.items.map((a) => (
-                <View key={a.id} style={styles.item}>
-                  <ListRow
-                    title={`#${a.tokenNo ?? '–'} · ${a.patient.name}`}
-                    subtitle={`${a.patient.mrn}${nurse ? ` · ${a.doctor.name}` : ''}`}
-                    trailing={<StatusChip label={humanize(a.status)} tone={statusTone(a.status)} />}
-                  />
-                  <View style={styles.actions}>
+                <AppointmentCard
+                  key={a.id}
+                  time={a.slotStart ? hospitalTime(a.slotStart) : 'Walk-in'}
+                  token={a.tokenNo}
+                  patientName={a.patient.name}
+                  mrn={a.patient.mrn}
+                  {...(nurse ? { doctorName: a.doctor.name } : {})}
+                  status={a.status}
+                  statusLabel={humanize(a.status)}
+                >
+                  <ActionRow>
                     <SecondaryButton
                       label="Vitals"
+                      fullWidth
                       onPress={() =>
                         router.push({
                           pathname: '/vitals/[appointmentId]',
@@ -243,6 +250,7 @@ function ClinicalQueue({ nurse }: { nurse: boolean }) {
                     {nurse ? null : a.status === 'checked_in' ? (
                       <PrimaryButton
                         label="Start consultation"
+                        fullWidth
                         loading={start.isPending}
                         onPress={() =>
                           void start
@@ -259,6 +267,7 @@ function ClinicalQueue({ nurse }: { nurse: boolean }) {
                     ) : (
                       <SecondaryButton
                         label="Open chart"
+                        fullWidth
                         onPress={() =>
                           router.push({
                             pathname: '/patients/[id]/chart',
@@ -267,8 +276,8 @@ function ClinicalQueue({ nurse }: { nurse: boolean }) {
                         }
                       />
                     )}
-                  </View>
-                </View>
+                  </ActionRow>
+                </AppointmentCard>
               ))}
             </Rows>
           )
@@ -294,10 +303,16 @@ function PharmacyQueue() {
           ) : (
             <Rows>
               {data.items.map((rx) => (
-                <ListRow
+                <PatientCard
                   key={rx.id}
-                  title={`${rx.rxNo} · ${rx.patient.name}`}
-                  subtitle={`${rx.patient.mrn} · ${rx.doctorName} · ${rx.items.length} item(s)${rx.allergies.length > 0 ? ' · allergies' : ''}`}
+                  name={rx.patient.name}
+                  mrn={rx.patient.mrn}
+                  allergies={rx.allergies.length}
+                  meta={[
+                    rx.rxNo,
+                    rx.doctorName,
+                    `${rx.items.length} item${rx.items.length === 1 ? '' : 's'}`,
+                  ]}
                   trailing={
                     <StatusChip
                       label={rx.expired ? 'Expired' : humanize(rx.status)}
@@ -334,8 +349,13 @@ function LabQueue() {
               {data.items.map((o) => (
                 <ListRow
                   key={o.id}
-                  title={`${o.orderNo} · ${o.test.name}`}
-                  subtitle={`${o.patient.name} · ${o.patient.mrn}${o.priority === 'urgent' ? ' · URGENT' : ''}`}
+                  title={o.test.name}
+                  subtitle={`${o.orderNo}  ·  ${o.patient.name}  ·  ${o.patient.mrn}`}
+                  leading={
+                    o.priority === 'urgent' ? (
+                      <StatusChip label="URGENT" tone="danger" dot={false} />
+                    ) : undefined
+                  }
                   trailing={<StatusChip label={humanize(o.status)} tone={statusTone(o.status)} />}
                   onPress={() =>
                     router.push({ pathname: '/lab-orders/[id]', params: { id: o.id } })
@@ -362,16 +382,16 @@ function BillingQueue() {
   return (
     <View style={styles.section}>
       <SectionHeader title="Invoices" />
-      <View style={styles.actions}>
-        {(['draft', 'issued', 'partially_paid'] as const).map((s) => (
-          <SecondaryButton
-            key={s}
-            label={humanize(s)}
-            onPress={() => setStatus(s)}
-            disabled={status === s}
-          />
-        ))}
-      </View>
+      <SegmentedControl
+        label="Invoice status"
+        value={status}
+        onChange={setStatus}
+        options={[
+          { value: 'draft', label: 'Draft' },
+          { value: 'issued', label: 'Issued' },
+          { value: 'partially_paid', label: 'Part paid' },
+        ]}
+      />
       <QueryBoundary query={query} loadingLabel="Loading invoices">
         {(data) =>
           data.items.length === 0 ? (
@@ -381,8 +401,8 @@ function BillingQueue() {
               {data.items.map((inv) => (
                 <ListRow
                   key={inv.id}
-                  title={`${inv.invoiceNo ?? 'Draft'} · ${inv.patient.name}`}
-                  subtitle={`${formatPaise(inv.totalPaise)} · paid ${formatPaise(inv.paidPaise)}${inv.pendingCorrectionsPaise > 0 ? ' · correction pending' : ''}`}
+                  title={inv.patient.name}
+                  subtitle={`${inv.invoiceNo ?? 'Draft'}  ·  ${formatPaise(inv.totalPaise)}  ·  paid ${formatPaise(inv.paidPaise)}${inv.pendingCorrectionsPaise > 0 ? '  ·  correction pending' : ''}`}
                   trailing={
                     <StatusChip label={humanize(inv.status)} tone={statusTone(inv.status)} />
                   }
@@ -438,14 +458,7 @@ export function QueueHint() {
 
 const styles = StyleSheet.create({
   section: { gap: spacing.md },
-  item: { paddingBottom: spacing.sm },
-  actions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-  },
+  cardActions: { gap: spacing.sm },
   actionsInline: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  cancel: { gap: spacing.sm, paddingHorizontal: spacing.lg, width: '100%' },
-  divider: { borderTopWidth: borders.hairline, borderTopColor: colors.border },
+  cancel: { gap: spacing.sm, width: '100%' },
 });

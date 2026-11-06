@@ -79,7 +79,7 @@ export function ForgotPasswordScreen() {
 
   return (
     <ScreenContainer>
-      <ScreenHeader title="Forgot password" />
+      <ScreenHeader title="Forgot password" eyebrow="ACCOUNT" />
       {step === 'request' ? (
         <SurfaceCard>
           <AppText color="textSecondary">

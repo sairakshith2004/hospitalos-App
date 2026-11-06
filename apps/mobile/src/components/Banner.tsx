@@ -41,8 +41,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.md,
     padding: spacing.md,
-    borderRadius: radius.sm,
+    borderRadius: radius.md,
     borderWidth: borders.hairline,
+    borderLeftWidth: borders.focus + 1,
   },
   text: { flex: 1, gap: spacing.xxs },
 });

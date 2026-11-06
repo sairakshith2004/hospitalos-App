@@ -9,24 +9,33 @@ type Props = {
   tone?: Tone;
   /** Show a leading dot. The label always carries the meaning; colour is never the only signal. */
   dot?: boolean;
+  size?: 'sm' | 'md';
 };
 
-export function StatusChip({ label, tone = 'neutral', dot = true }: Props) {
+/** Status badge: tinted pill with a label (and optional dot). Read as "Status: …". */
+export function StatusChip({ label, tone = 'neutral', dot = true, size = 'sm' }: Props) {
   const { fg, bg } = toneColors[tone];
   return (
     <View
-      style={[styles.chip, { backgroundColor: bg }]}
+      style={[styles.chip, size === 'md' && styles.md, { backgroundColor: bg }]}
       accessible
       accessibilityRole="text"
       accessibilityLabel={`Status: ${label}`}
     >
       {dot ? <View style={[styles.dot, { backgroundColor: fg }]} /> : null}
-      <AppText variant="caption" style={[styles.label, { color: fg }]} numberOfLines={1}>
+      <AppText
+        variant={size === 'md' ? 'label' : 'caption'}
+        style={[styles.label, { color: fg }]}
+        numberOfLines={1}
+      >
         {label}
       </AppText>
     </View>
   );
 }
+
+/** Same component under the design-system name. */
+export const StatusBadge = StatusChip;
 
 const styles = StyleSheet.create({
   chip: {
@@ -38,6 +47,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderRadius: radius.pill,
   },
-  dot: { width: 6, height: 6, borderRadius: radius.pill },
-  label: { fontWeight: '600' },
+  md: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs + spacing.xxs },
+  dot: {
+    width: spacing.xs + spacing.xxs,
+    height: spacing.xs + spacing.xxs,
+    borderRadius: radius.pill,
+  },
+  label: { fontWeight: '600', letterSpacing: 0.2 },
 });

@@ -4,8 +4,10 @@ import { useState } from 'react';
 
 import {
   AppText,
+  Divided,
   EmptyState,
-  ListRow,
+  GradientHeader,
+  PatientCard,
   QueryBoundary,
   ScreenContainer,
   SearchField,
@@ -51,18 +53,26 @@ function PatientSearch() {
                 message="Check the spelling, or register the patient from the Work Queue."
               />
             ) : (
-              <SurfaceCard padding="none">
-                {data.items.map((p) => (
-                  <ListRow
-                    key={p.id}
-                    title={`${p.firstName} ${p.lastName}`}
-                    subtitle={`${p.mrn} · ${p.ageYears} y · ${humanize(p.sex)} · ${p.phone}`}
-                    onPress={() =>
-                      router.push({ pathname: '/patients/[id]', params: { id: p.id } })
-                    }
-                  />
-                ))}
-              </SurfaceCard>
+              <>
+                <AppText variant="caption" color="textMuted">
+                  {`${data.items.length} ${data.items.length === 1 ? 'patient' : 'patients'} · at most 20 shown`}
+                </AppText>
+                <SurfaceCard padding="none" enterIndex={0}>
+                  <Divided>
+                    {data.items.map((p) => (
+                      <PatientCard
+                        key={p.id}
+                        name={`${p.firstName} ${p.lastName}`}
+                        mrn={p.mrn}
+                        meta={[`${p.ageYears} y`, humanize(p.sex), p.phone]}
+                        onPress={() =>
+                          router.push({ pathname: '/patients/[id]', params: { id: p.id } })
+                        }
+                      />
+                    ))}
+                  </Divided>
+                </SurfaceCard>
+              </>
             )
           }
         </QueryBoundary>
@@ -78,14 +88,13 @@ export function SearchScreen() {
     session.permissions.some((p) => p === 'patient:read_demographics');
   return (
     <ScreenContainer bottomInset={false}>
-      <AppText variant="title" accessibilityRole="header">
-        Search
-      </AppText>
+      <GradientHeader eyebrow="PATIENTS" title="Search" />
       {canSearch ? (
         <PatientSearch />
       ) : (
         <EmptyState
-          icon="search"
+          icon="lock"
+          tone="neutral"
           title="Search across HospitalOS"
           message={
             session.kind === 'authenticated'

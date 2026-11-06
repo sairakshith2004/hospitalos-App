@@ -9,9 +9,15 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import {
+  ActionRow,
   AppText,
   Banner,
-  ListRow,
+  BottomSheet,
+  DataRow,
+  DoctorCard,
+  EmptyState,
+  GlassCard,
+  PatientCard,
   PrimaryButton,
   QueryBoundary,
   ScreenContainer,
@@ -20,12 +26,13 @@ import {
   SectionHeader,
   StatusChip,
   SurfaceCard,
+  statusTone,
 } from '@/components';
 import { useSignedInSession } from '@/features/session/SessionProvider';
 import { describeError } from '@/services/api/errors';
 import { useApiMutation, useApiQuery } from '@/services/api/hooks';
-import { humanize } from '@/services/format';
-import { spacing } from '@/theme/tokens';
+import { formatPaise, humanize } from '@/services/format';
+import { borders, colors, radius, spacing, toneColors } from '@/theme/tokens';
 
 /** A patient's demographics and visits; actions depend on the signed-in user's permissions. */
 export function PatientScreen({ id }: { id: string }) {
@@ -53,35 +60,44 @@ export function PatientScreen({ id }: { id: string }) {
 
   return (
     <ScreenContainer>
-      <ScreenHeader title="Patient" back />
+      <ScreenHeader title="Patient" eyebrow="PATIENT RECORD" back />
       <QueryBoundary query={patient} loadingLabel="Loading patient">
         {(p) => (
-          <SurfaceCard>
-            <AppText variant="headline">{`${p.firstName} ${p.lastName}`}</AppText>
-            <AppText color="textSecondary">{`${p.mrn} · ${p.ageYears} y · ${humanize(p.sex)} · ${p.phone}`}</AppText>
-            {p.bloodGroup !== null ? (
-              <StatusChip label={`Blood group ${p.bloodGroup}`} tone="neutral" dot={false} />
-            ) : null}
-            <View style={styles.actions}>
+          <GlassCard tone="hero" padding="lg" enterIndex={0}>
+            <PatientCard
+              size="header"
+              name={`${p.firstName} ${p.lastName}`}
+              mrn={p.mrn}
+              meta={[`${p.ageYears} y`, humanize(p.sex)]}
+            />
+            <View style={styles.facts}>
+              <DataRow label="Mobile" value={p.phone} />
+              <DataRow label="Date of birth" value={p.dob} />
+              {p.bloodGroup !== null ? <DataRow label="Blood group" value={p.bloodGroup} /> : null}
+              {p.email !== null ? <DataRow label="Email" value={p.email} /> : null}
+            </View>
+            <ActionRow>
               {can('appointment:book') ? (
                 <PrimaryButton
                   label="Book appointment"
+                  fullWidth
                   onPress={() => router.push({ pathname: '/book', params: { patientId: p.id } })}
                 />
               ) : null}
               {can('appointment:check_in') ? (
-                <SecondaryButton label="Walk-in" onPress={() => setWalkIn((v) => !v)} />
+                <SecondaryButton label="Walk-in" fullWidth onPress={() => setWalkIn(true)} />
               ) : null}
               {can('patient:read_clinical') ? (
                 <SecondaryButton
                   label="Chart"
+                  fullWidth
                   onPress={() =>
                     router.push({ pathname: '/patients/[id]/chart', params: { id: p.id } })
                   }
                 />
               ) : null}
-            </View>
-          </SurfaceCard>
+            </ActionRow>
+          </GlassCard>
         )}
       </QueryBoundary>
 
@@ -92,53 +108,92 @@ export function PatientScreen({ id }: { id: string }) {
           message={message.text}
         />
       ) : null}
-      {walkIn ? (
-        <SurfaceCard padding="none">
-          <SectionHeader title="Walk-in: choose a doctor" />
-          <QueryBoundary query={doctors} loadingLabel="Loading doctors">
-            {(d) => (
-              <View>
-                {d.items.map((doc) => (
-                  <ListRow
-                    key={doc.id}
-                    title={doc.fullName}
-                    subtitle={`${doc.departmentName} · ${doc.specialty}`}
-                    onPress={() =>
-                      void walkInMutation
-                        .mutateAsync(doc.id)
-                        .then((a) => {
-                          setWalkIn(false);
-                          setMessage({
-                            tone: 'success',
-                            text: `Token ${a.tokenNo ?? ''} with ${a.doctor.name}. The fee is on the visit's bill.`,
-                          });
-                        })
-                        .catch((e: unknown) =>
-                          setMessage({ tone: 'danger', text: describeError(e) }),
-                        )
-                    }
-                  />
-                ))}
-              </View>
-            )}
-          </QueryBoundary>
-        </SurfaceCard>
-      ) : null}
+
+      <BottomSheet
+        visible={walkIn}
+        title="Walk-in: choose a doctor"
+        onClose={() => setWalkIn(false)}
+      >
+        <AppText variant="bodySmall" color="textMuted">
+          {
+            "The patient is checked in at once with a queue token; the consultation fee goes on the visit's bill."
+          }
+        </AppText>
+        <QueryBoundary query={doctors} loadingLabel="Loading doctors">
+          {(d) => (
+            <View style={styles.doctors}>
+              {d.items.map((doc) => (
+                <DoctorCard
+                  key={doc.id}
+                  name={doc.fullName}
+                  department={doc.departmentName}
+                  specialty={doc.specialty}
+                  fee={formatPaise(doc.consultationFeePaise)}
+                  onPress={() =>
+                    void walkInMutation
+                      .mutateAsync(doc.id)
+                      .then((a) => {
+                        setWalkIn(false);
+                        setMessage({
+                          tone: 'success',
+                          text: `Token ${a.tokenNo ?? ''} with ${a.doctor.name}. The fee is on the visit's bill.`,
+                        });
+                      })
+                      .catch((e: unknown) => {
+                        setWalkIn(false);
+                        setMessage({ tone: 'danger', text: describeError(e) });
+                      })
+                  }
+                />
+              ))}
+            </View>
+          )}
+        </QueryBoundary>
+      </BottomSheet>
 
       <SectionHeader title="Visits" />
       <QueryBoundary query={visits} loadingLabel="Loading visits">
         {(v) =>
           v.items.length === 0 ? (
-            <AppText color="textSecondary">No visits yet.</AppText>
-          ) : (
             <SurfaceCard padding="none">
-              {v.items.map((visit) => (
-                <ListRow
-                  key={visit.appointmentId}
-                  title={`${visit.visitDate} · ${visit.doctorName}`}
-                  subtitle={`${visit.departmentName} · ${visit.appointmentNo}`}
-                  trailing={<StatusChip label={humanize(visit.status)} tone="neutral" />}
-                />
+              <EmptyState
+                icon="calendar"
+                title="No visits yet"
+                message={
+                  can('appointment:book')
+                    ? 'Book an appointment or register a walk-in to start a visit.'
+                    : 'Visits appear here once the patient is booked.'
+                }
+              />
+            </SurfaceCard>
+          ) : (
+            <SurfaceCard padding="md" enterIndex={1}>
+              {v.items.map((visit, index) => (
+                <View key={visit.appointmentId} style={styles.visit}>
+                  <View style={styles.rail}>
+                    <View
+                      style={[
+                        styles.dot,
+                        { backgroundColor: toneColors[statusTone(visit.status)].fg },
+                      ]}
+                    />
+                    {index < v.items.length - 1 ? <View style={styles.line} /> : null}
+                  </View>
+                  <View style={styles.visitBody} accessible>
+                    <View style={styles.visitTop}>
+                      <AppText variant="bodyStrong" style={styles.visitDate}>
+                        {visit.visitDate}
+                      </AppText>
+                      <StatusChip label={humanize(visit.status)} tone={statusTone(visit.status)} />
+                    </View>
+                    <AppText variant="bodySmall" color="textSecondary">
+                      {visit.doctorName}
+                    </AppText>
+                    <AppText variant="caption" color="textMuted">
+                      {`${visit.departmentName}  ·  ${visit.appointmentNo}`}
+                    </AppText>
+                  </View>
+                </View>
               ))}
             </SurfaceCard>
           )
@@ -149,5 +204,18 @@ export function PatientScreen({ id }: { id: string }) {
 }
 
 const styles = StyleSheet.create({
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  facts: { gap: spacing.xxs },
+  doctors: { gap: spacing.xs },
+  visit: { flexDirection: 'row', gap: spacing.md },
+  rail: { alignItems: 'center', width: spacing.md },
+  dot: {
+    width: spacing.sm + 2,
+    height: spacing.sm + 2,
+    borderRadius: radius.pill,
+    marginTop: spacing.xs + 2,
+  },
+  line: { flex: 1, width: borders.focus, backgroundColor: colors.border, marginTop: spacing.xs },
+  visitBody: { flex: 1, gap: spacing.xxs, paddingBottom: spacing.lg },
+  visitTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  visitDate: { flex: 1 },
 });

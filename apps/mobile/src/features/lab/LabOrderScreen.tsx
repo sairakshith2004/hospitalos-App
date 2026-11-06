@@ -5,11 +5,15 @@ import { StyleSheet, View } from 'react-native';
 import {
   AppText,
   Banner,
+  DataRow,
+  GlassCard,
+  PatientCard,
   PrimaryButton,
   QueryBoundary,
   ScreenContainer,
   ScreenHeader,
   StatusChip,
+  statusTone,
   SurfaceCard,
   TextField,
 } from '@/components';
@@ -17,9 +21,51 @@ import { useSignedInSession } from '@/features/session/SessionProvider';
 import { describeError } from '@/services/api/errors';
 import { useApiMutation, useApiQuery } from '@/services/api/hooks';
 import { humanize } from '@/services/format';
-import { spacing } from '@/theme/tokens';
+import { colors, radius, spacing, tints } from '@/theme/tokens';
 
 /** One lab order through collection, processing, results and independent verification. */
+const STAGES = [
+  { key: 'ordered', label: 'Collect' },
+  { key: 'sample_collected', label: 'Process' },
+  { key: 'in_process', label: 'Results' },
+  { key: 'resulted', label: 'Verify' },
+] as const;
+
+/** Where the order is in the laboratory steps. Text labels carry the meaning; colour supports it. */
+function Stages({ status }: { status: string }) {
+  const done = status === 'verified';
+  const current = STAGES.findIndex((stage) => stage.key === status);
+  return (
+    <View
+      style={styles.stages}
+      accessible
+      accessibilityLabel={
+        done
+          ? 'All steps done'
+          : current >= 0
+            ? `Next step: ${STAGES[current]?.label ?? ''}`
+            : humanize(status)
+      }
+    >
+      {STAGES.map((stage, index) => {
+        const complete = done || (current >= 0 && index < current);
+        const active = !done && index === current;
+        return (
+          <View key={stage.key} style={styles.stage}>
+            <View style={[styles.bar, complete && styles.barDone, active && styles.barActive]} />
+            <AppText
+              variant="caption"
+              color={active ? 'primary' : complete ? 'success' : 'textMuted'}
+            >
+              {stage.label}
+            </AppText>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 export function LabOrderScreen({ id }: { id: string }) {
   const session = useSignedInSession();
   const order = useApiQuery(['lab-order', id], `/api/v1/lab-orders/${id}`, labOrderSchema);
@@ -52,17 +98,32 @@ export function LabOrderScreen({ id }: { id: string }) {
 
   return (
     <ScreenContainer>
-      <ScreenHeader title="Lab order" back />
+      <ScreenHeader title="Lab order" eyebrow="LABORATORY" back />
       {error !== null ? <Banner tone="danger" title="Not done" message={error} /> : null}
       <QueryBoundary query={order} loadingLabel="Loading order">
         {(o) => (
           <View style={styles.root}>
-            <SurfaceCard>
-              <AppText variant="headline">{`${o.orderNo} · ${o.test.name}`}</AppText>
-              <AppText color="textSecondary">{`${o.patient.name} · ${o.patient.mrn} · ${o.test.sampleType}`}</AppText>
-              <StatusChip label={humanize(o.status)} tone="primary" />
-              {o.sampleBarcode !== null ? <AppText>{`Sample ${o.sampleBarcode}`}</AppText> : null}
-            </SurfaceCard>
+            <GlassCard tone="hero" padding="lg" enterIndex={0}>
+              <View style={styles.head}>
+                <View style={styles.flex}>
+                  <AppText variant="overline" color="secondary">
+                    {o.orderNo}
+                  </AppText>
+                  <AppText variant="title">{o.test.name}</AppText>
+                </View>
+                <StatusChip label={humanize(o.status)} tone={statusTone(o.status)} size="md" />
+              </View>
+              <PatientCard
+                flush
+                name={o.patient.name}
+                mrn={o.patient.mrn}
+                meta={[humanize(o.test.sampleType)]}
+              />
+              {o.sampleBarcode !== null ? (
+                <DataRow label="Sample barcode" value={o.sampleBarcode} />
+              ) : null}
+              <Stages status={o.status} />
+            </GlassCard>
 
             {o.status === 'ordered' ? (
               <SurfaceCard>
@@ -75,6 +136,7 @@ export function LabOrderScreen({ id }: { id: string }) {
                 />
                 <PrimaryButton
                   label="Sample collected"
+                  fullWidth
                   disabled={barcode.trim().length < 4}
                   loading={collect.isPending}
                   onPress={() =>
@@ -90,6 +152,8 @@ export function LabOrderScreen({ id }: { id: string }) {
             {o.status === 'sample_collected' ? (
               <PrimaryButton
                 label="Start processing"
+                fullWidth
+                size="lg"
                 loading={process.isPending}
                 onPress={() =>
                   void process
@@ -120,6 +184,7 @@ export function LabOrderScreen({ id }: { id: string }) {
                 ))}
                 <PrimaryButton
                   label="Save results"
+                  fullWidth
                   disabled={o.results.some((r) => !(values[r.parameterId] ?? '').trim())}
                   loading={results.isPending}
                   onPress={() =>
@@ -138,15 +203,21 @@ export function LabOrderScreen({ id }: { id: string }) {
             ) : null}
 
             {o.status === 'resulted' || o.status === 'verified' ? (
-              <SurfaceCard>
-                {o.results.map((r) => (
-                  <AppText
-                    key={r.parameterId}
-                    color={r.flag !== null && r.flag !== 'normal' ? 'warning' : 'text'}
-                  >
-                    {`${r.parameter}: ${r.valueNum ?? r.valueText ?? ''}${r.unit ? ` ${r.unit}` : ''}${r.flag !== null ? ` · ${r.flag}` : ''}`}
-                  </AppText>
-                ))}
+              <SurfaceCard padding="lg">
+                <AppText variant="overline" color="textMuted">
+                  RESULTS
+                </AppText>
+                {o.results.map((r) => {
+                  const flagged = r.flag !== null && r.flag !== 'normal';
+                  return (
+                    <DataRow
+                      key={r.parameterId}
+                      label={`${r.parameter}${r.flag !== null ? ` (${r.flag})` : ''}`}
+                      value={`${r.valueNum ?? r.valueText ?? ''}${r.unit ? ` ${r.unit}` : ''}`}
+                      valueColor={flagged ? 'warning' : 'text'}
+                    />
+                  );
+                })}
                 {o.status === 'resulted' ? (
                   o.resultedBy === userId ? (
                     <Banner
@@ -176,4 +247,13 @@ export function LabOrderScreen({ id }: { id: string }) {
   );
 }
 
-const styles = StyleSheet.create({ root: { gap: spacing.md } });
+const styles = StyleSheet.create({
+  root: { gap: spacing.md },
+  head: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+  flex: { flex: 1, gap: spacing.xxs },
+  stages: { flexDirection: 'row', gap: spacing.xs },
+  stage: { flex: 1, gap: spacing.xs },
+  bar: { height: spacing.xs, borderRadius: radius.pill, backgroundColor: tints.neutral },
+  barDone: { backgroundColor: colors.success },
+  barActive: { backgroundColor: colors.primary },
+});

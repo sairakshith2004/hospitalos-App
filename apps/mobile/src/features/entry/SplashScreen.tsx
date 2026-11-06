@@ -1,27 +1,40 @@
 import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
-import { AppText, PrimaryButton, ScreenContainer } from '@/components';
-import { spacing } from '@/theme/tokens';
+import { AppText, BrandMark, PrimaryButton, ScreenContainer } from '@/components';
+import { layout, spacing } from '@/theme/tokens';
 
-/** Placeholder. The branded splash with logo reveal is built in Step 6. */
+/** First screen when signed out: brand, one line of purpose, one action. */
 export function SplashScreen() {
   const router = useRouter();
   return (
     <ScreenContainer scroll={false}>
       <View style={styles.center}>
-        <AppText variant="display" accessibilityRole="header">
-          HospitalOS
-        </AppText>
-        <AppText variant="bodySmall" color="textMuted">
-          Hospital operations, in one place.
-        </AppText>
-        <PrimaryButton label="Continue" onPress={() => router.replace('/onboarding')} />
+        <BrandMark size="lg" />
+        <View style={styles.text}>
+          <AppText variant="overline" color="primary" style={styles.centerText}>
+            HOSPITAL OPERATING SYSTEM
+          </AppText>
+          <AppText variant="display" accessibilityRole="header" style={styles.centerText}>
+            HospitalOS
+          </AppText>
+          <AppText variant="body" color="textMuted" style={styles.centerText}>
+            Hospital operations, in one place.
+          </AppText>
+        </View>
       </View>
+      <PrimaryButton
+        label="Continue"
+        fullWidth
+        size="lg"
+        onPress={() => router.replace('/onboarding')}
+      />
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.lg },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.xl },
+  text: { gap: spacing.sm, maxWidth: layout.proseMaxWidth },
+  centerText: { textAlign: 'center' },
 });

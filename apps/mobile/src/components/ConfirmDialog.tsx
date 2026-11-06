@@ -1,7 +1,9 @@
 import { Pressable, StyleSheet, View } from 'react-native';
+import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, elevation, layout, radius, spacing } from '@/theme/tokens';
+import { useReducedMotion } from '@/hooks/useAccessibilitySetting';
+import { borders, colors, elevation, layout, motion, radius, spacing } from '@/theme/tokens';
 
 import { AppText } from './AppText';
 import { DangerButton, PrimaryButton, SecondaryButton } from './Button';
@@ -30,17 +32,22 @@ export function ConfirmDialog({
   onCancel,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const reduced = useReducedMotion();
   const ConfirmButton = destructive ? DangerButton : PrimaryButton;
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <Animated.View
+      {...(reduced ? {} : { entering: FadeIn.duration(motion.duration.base) })}
+      style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
+    >
       <Pressable
         style={StyleSheet.absoluteFill}
         onPress={onCancel}
         accessibilityRole="button"
         accessibilityLabel="Dismiss dialog"
       />
-      <View
+      <Animated.View
+        {...(reduced ? {} : { entering: ZoomIn.duration(motion.duration.base) })}
         style={[styles.card, elevation.high]}
         accessibilityViewIsModal
         accessibilityRole="alert"
@@ -55,8 +62,8 @@ export function ConfirmDialog({
           <SecondaryButton label={cancelLabel} onPress={onCancel} />
           <ConfirmButton label={confirmLabel} onPress={onConfirm} />
         </View>
-      </View>
-    </View>
+      </Animated.View>
+    </Animated.View>
   );
 }
 
@@ -73,8 +80,11 @@ const styles = StyleSheet.create({
     maxWidth: layout.dialogMaxWidth,
     gap: spacing.md,
     padding: spacing.xl,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     backgroundColor: colors.surfaceRaised,
+    borderWidth: borders.thin,
+    borderColor: colors.border,
+    borderTopColor: colors.borderHighlight,
   },
   actions: {
     flexDirection: 'row',
@@ -84,3 +94,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
 });
+
+/** Same component under the design-system name. */
+export const ConfirmationDialog = ConfirmDialog;

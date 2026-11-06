@@ -1,9 +1,15 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 
+import { StyleSheet, View } from 'react-native';
+
 import {
   AppText,
   Banner,
+  BrandMark,
+  GhostButton,
+  GlassCard,
+  Icon,
   PrimaryButton,
   ScreenContainer,
   SecondaryButton,
@@ -13,6 +19,7 @@ import {
 import { devToolsEnabled } from '@/features/dev/flags';
 import { useSession } from '@/features/session/SessionProvider';
 import { ApiError, describeError } from '@/services/api/errors';
+import { colors, iconSize, spacing } from '@/theme/tokens';
 
 function signInMessage(error: unknown): string {
   if (error instanceof ApiError) {
@@ -52,12 +59,20 @@ export function SignInScreen() {
 
   return (
     <ScreenContainer>
-      <AppText variant="title" accessibilityRole="header">
-        Sign in
-      </AppText>
-      <AppText color="textSecondary">Use the account your hospital gave you.</AppText>
+      <View style={styles.brand}>
+        <BrandMark size="lg" />
+        <AppText variant="overline" color="primary">
+          HOSPITALOS
+        </AppText>
+        <AppText variant="display" accessibilityRole="header">
+          Sign in
+        </AppText>
+        <AppText color="textSecondary" style={styles.centerText}>
+          Use the account your hospital gave you.
+        </AppText>
+      </View>
 
-      <SurfaceCard>
+      <GlassCard tone="hero" padding="lg" enterIndex={0}>
         <TextField
           label="Username"
           value={username}
@@ -74,6 +89,7 @@ export function SignInScreen() {
           value={password}
           onChangeText={setPassword}
           secureTextEntry
+          revealable
           autoCapitalize="none"
           autoComplete="current-password"
           textContentType="password"
@@ -85,21 +101,30 @@ export function SignInScreen() {
         <PrimaryButton
           label="Sign in"
           fullWidth
+          size="lg"
           loading={busy}
           disabled={!canSubmit}
           onPress={() => void submit()}
         />
-      </SurfaceCard>
+        <View style={styles.forgot}>
+          <GhostButton label="Forgot password" onPress={() => router.push('/forgot-password')} />
+        </View>
+      </GlassCard>
 
-      <SecondaryButton label="Forgot password" onPress={() => router.push('/forgot-password')} />
+      <View style={styles.secure}>
+        <Icon name="lock" size={iconSize.xs} color={colors.textMuted} />
+        <AppText variant="caption" color="textMuted">
+          No public registration. Your hospital creates every account.
+        </AppText>
+      </View>
 
       {devToolsEnabled ? (
-        <SurfaceCard>
+        <SurfaceCard variant="outline">
           <Banner
             title="DEVELOPMENT ONLY"
             message="Opens a demo workspace with synthetic data. This is not a login and grants no real access."
           />
-          <PrimaryButton
+          <SecondaryButton
             label="Open demo workspace"
             fullWidth
             onPress={() => startDemoSession('hospital-admin')}
@@ -109,3 +134,10 @@ export function SignInScreen() {
     </ScreenContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  brand: { alignItems: 'center', gap: spacing.sm, paddingTop: spacing.xl },
+  centerText: { textAlign: 'center' },
+  forgot: { alignItems: 'center' },
+  secure: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs },
+});

@@ -24,3 +24,7 @@ jest.mock('expo-secure-store', () => {
     }),
   };
 });
+
+// Reanimated 4 needs its native worklets runtime; tests use the library's own mocks.
+jest.mock('react-native-worklets', () => jest.requireActual('react-native-worklets/src/mock'));
+jest.mock('react-native-reanimated', () => jest.requireActual('react-native-reanimated/mock'));

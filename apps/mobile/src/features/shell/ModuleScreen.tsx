@@ -1,6 +1,6 @@
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
-import { EmptyState, ScreenContainer, ScreenHeader, StatusChip } from '@/components';
+import { EmptyState, GlassCard, ScreenContainer, ScreenHeader, StatusChip } from '@/components';
 import { canSeeModule, findModule } from '@/features/access/modules';
 import { useSignedInSession } from '@/features/session/SessionProvider';
 
@@ -10,6 +10,7 @@ import { useSignedInSession } from '@/features/session/SessionProvider';
  * request; this screen only decides what to show.
  */
 export function ModuleScreen() {
+  const router = useRouter();
   const { moduleId } = useLocalSearchParams<{ moduleId: string }>();
   const session = useSignedInSession();
   const module = findModule(moduleId);
@@ -18,7 +19,9 @@ export function ModuleScreen() {
     return (
       <ScreenContainer>
         <ScreenHeader title="Module not found" />
-        <EmptyState icon="alert" title="This module does not exist" />
+        <GlassCard padding="none">
+          <EmptyState icon="alert" tone="warning" title="This module does not exist" />
+        </GlassCard>
       </ScreenContainer>
     );
   }
@@ -27,11 +30,14 @@ export function ModuleScreen() {
     return (
       <ScreenContainer>
         <ScreenHeader title={module.title} />
-        <EmptyState
-          icon="lock"
-          title="Not available for your role"
-          message="Ask your administrator if you need access to this module."
-        />
+        <GlassCard padding="none">
+          <EmptyState
+            icon="lock"
+            tone="neutral"
+            title="Not available for your role"
+            message="Ask your administrator if you need access to this module."
+          />
+        </GlassCard>
       </ScreenContainer>
     );
   }
@@ -41,15 +47,18 @@ export function ModuleScreen() {
     <ScreenContainer>
       <ScreenHeader title={module.title} />
       <StatusChip label={`ARRIVES IN ${release.toUpperCase()}`} tone="neutral" dot={false} />
-      <EmptyState
-        icon={module.icon}
-        title={`${module.title} arrives in ${release}`}
-        message={
-          detail
-            ? `Planned for ${release} (${detail}). Nothing here is live yet.`
-            : `Planned for ${release}. Nothing here is live yet.`
-        }
-      />
+      <GlassCard tone="hero" padding="none">
+        <EmptyState
+          icon={module.icon}
+          title={`${module.title} arrives in ${release}`}
+          message={
+            detail
+              ? `Planned for ${release} (${detail}). Nothing here is live yet.`
+              : `Planned for ${release}. Nothing here is live yet.`
+          }
+          action={{ label: 'Open work queue', onPress: () => router.navigate('/queue') }}
+        />
+      </GlassCard>
     </ScreenContainer>
   );
 }

@@ -5,19 +5,25 @@ import { StyleSheet, View } from 'react-native';
 import {
   AppText,
   Banner,
+  ChoiceChip,
+  DataRow,
+  GlassCard,
+  Icon,
+  PatientCard,
   PrimaryButton,
   QueryBoundary,
   ScreenContainer,
   ScreenHeader,
-  SecondaryButton,
+  SectionHeader,
   StatusChip,
+  statusTone,
   SurfaceCard,
   TextField,
 } from '@/components';
 import { ApiError, describeError } from '@/services/api/errors';
 import { useApiMutation, useApiQuery } from '@/services/api/hooks';
 import { humanize } from '@/services/format';
-import { spacing } from '@/theme/tokens';
+import { colors, iconSize, layout, radius, spacing, tints } from '@/theme/tokens';
 
 /**
  * Dispensing: the server picks batches first-expiry-first-out and never uses expired or recalled
@@ -44,7 +50,7 @@ export function DispenseScreen({ id }: { id: string }) {
 
   return (
     <ScreenContainer>
-      <ScreenHeader title="Dispense" back />
+      <ScreenHeader title="Dispense" eyebrow="PHARMACY" back />
       {message !== null ? (
         <Banner tone={message.tone} title={message.title} message={message.text} />
       ) : null}
@@ -60,26 +66,57 @@ export function DispenseScreen({ id }: { id: string }) {
             .filter((l) => l.qty > 0);
           return (
             <View style={styles.root}>
-              <SurfaceCard>
-                <AppText variant="headline">{`${p.rxNo} · ${p.patient.name}`}</AppText>
-                <AppText color="textSecondary">{`${p.patient.mrn} · ${p.doctorName} · valid until ${p.validUntil}`}</AppText>
-                <StatusChip
-                  label={p.expired ? 'Expired' : humanize(p.status)}
-                  tone={p.expired ? 'danger' : 'primary'}
+              <GlassCard tone="hero" padding="lg" enterIndex={0}>
+                <PatientCard
+                  size="header"
+                  name={p.patient.name}
+                  mrn={p.patient.mrn}
+                  allergies={p.allergies.length}
+                  meta={[p.rxNo, p.doctorName]}
                 />
+                <View style={styles.rxMeta}>
+                  <StatusChip
+                    label={p.expired ? 'Expired' : humanize(p.status)}
+                    tone={p.expired ? 'danger' : statusTone(p.status)}
+                    size="md"
+                  />
+                  <AppText variant="caption" color="textMuted">
+                    {`Valid until ${p.validUntil}`}
+                  </AppText>
+                </View>
                 {p.allergies.length > 0 ? (
                   <Banner
                     tone="danger"
+                    icon="warning"
                     title="Allergies"
                     message={p.allergies.map((a) => `${a.substance} (${a.severity})`).join(', ')}
                   />
                 ) : null}
-              </SurfaceCard>
-              {p.items.map((i) => (
-                <SurfaceCard key={i.id}>
-                  <AppText variant="label">{i.medicineName}</AppText>
-                  <AppText color="textSecondary">{`${i.dose} · ${i.frequency} · ${i.route}${i.durationDays ? ` · ${i.durationDays} days` : ''}`}</AppText>
-                  <AppText>{`Dispensed ${i.qtyDispensed} of ${i.qtyPrescribed}${i.substitutionAllowed ? ' · substitution allowed' : ''}`}</AppText>
+              </GlassCard>
+              <SectionHeader title="Medicines" count={p.items.length} />
+              {p.items.map((i, index) => (
+                <SurfaceCard key={i.id} enterIndex={index + 1}>
+                  <View style={styles.medHead}>
+                    <View style={styles.medWell}>
+                      <Icon name="medkit" size={iconSize.sm} color={colors.primary} />
+                    </View>
+                    <View style={styles.medText}>
+                      <AppText variant="subhead">{i.medicineName}</AppText>
+                      <AppText
+                        variant="bodySmall"
+                        color="textSecondary"
+                      >{`${i.dose}  ·  ${i.frequency}  ·  ${i.route}${i.durationDays ? `  ·  ${i.durationDays} days` : ''}`}</AppText>
+                    </View>
+                  </View>
+                  <DataRow label="Prescribed" value={String(i.qtyPrescribed)} />
+                  <DataRow
+                    label="Dispensed so far"
+                    value={String(i.qtyDispensed)}
+                    valueColor={i.qtyDispensed >= i.qtyPrescribed ? 'success' : 'text'}
+                  />
+                  {i.substitutionAllowed ? (
+                    <StatusChip label="Substitution allowed" tone="info" dot={false} />
+                  ) : null}
                   {i.allergyAcknowledged ? (
                     <StatusChip label="Doctor acknowledged an allergy match" tone="warning" />
                   ) : null}
@@ -95,17 +132,20 @@ export function DispenseScreen({ id }: { id: string }) {
               ))}
               {remaining.length > 0 && !p.expired ? (
                 <>
-                  <SecondaryButton
-                    label={
-                      acknowledge
-                        ? 'Near-expiry stock confirmed ✓'
-                        : 'Confirm near-expiry stock if offered'
-                    }
+                  <ChoiceChip
+                    role="checkbox"
+                    label="Accept near-expiry stock if it is the first to expire"
+                    selected={acknowledge}
                     onPress={() => setAcknowledge((v) => !v)}
                   />
+                  <AppText variant="caption" color="textMuted">
+                    Batches are chosen first-expiry-first-out by the server. Expired, recalled and
+                    quarantined stock is never dispensed.
+                  </AppText>
                   <PrimaryButton
                     label="Dispense"
                     fullWidth
+                    size="lg"
                     disabled={lines.length === 0}
                     loading={dispense.isPending}
                     onPress={() =>
@@ -145,4 +185,17 @@ export function DispenseScreen({ id }: { id: string }) {
   );
 }
 
-const styles = StyleSheet.create({ root: { gap: spacing.md } });
+const styles = StyleSheet.create({
+  root: { gap: spacing.md },
+  rxMeta: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, flexWrap: 'wrap' },
+  medHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  medWell: {
+    width: layout.iconWell,
+    height: layout.iconWell,
+    borderRadius: radius.sm,
+    backgroundColor: tints.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  medText: { flex: 1, gap: spacing.xxs },
+});

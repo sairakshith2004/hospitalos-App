@@ -11,12 +11,13 @@ import { StyleSheet, View } from 'react-native';
 
 import {
   Banner,
+  ChoiceChip,
+  DoctorCard,
   ListRow,
   PrimaryButton,
   QueryBoundary,
   ScreenContainer,
   ScreenHeader,
-  SecondaryButton,
   SectionHeader,
   SurfaceCard,
 } from '@/components';
@@ -87,9 +88,10 @@ export function NurseAssignmentScreen() {
             {s.items
               .filter((u) => u.roles.includes('NUR') && u.status === 'active')
               .map((u) => (
-                <SecondaryButton
+                <ChoiceChip
                   key={u.id}
-                  label={`${nurseId === u.id ? '✓ ' : ''}${u.fullName}`}
+                  label={u.fullName}
+                  selected={nurseId === u.id}
                   onPress={() => setNurseId(u.id)}
                 />
               ))}
@@ -99,15 +101,18 @@ export function NurseAssignmentScreen() {
       <SectionHeader title="Doctor" />
       <QueryBoundary query={doctors} loadingLabel="Loading doctors">
         {(d) => (
-          <View style={styles.wrap}>
+          <SurfaceCard padding="sm">
             {d.items.map((doc) => (
-              <SecondaryButton
+              <DoctorCard
                 key={doc.id}
-                label={`${doctorId === doc.id ? '✓ ' : ''}${doc.fullName}`}
+                name={doc.fullName}
+                department={doc.departmentName}
+                specialty={doc.specialty}
+                selected={doctorId === doc.id}
                 onPress={() => setDoctorId(doc.id)}
               />
             ))}
-          </View>
+          </SurfaceCard>
         )}
       </QueryBoundary>
       <PrimaryButton

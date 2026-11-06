@@ -10,13 +10,15 @@ import { IconButton } from './IconButton';
 type Props = {
   title: string;
   subtitle?: string;
+  /** Small uppercase context above the title, e.g. "RECEPTION". */
+  eyebrow?: string;
   /** Show a back button (default true). Android hardware back works regardless. */
   back?: boolean;
   trailing?: ReactNode;
 };
 
 /** In-content header for stack screens. Navigation headers are hidden app-wide. */
-export function ScreenHeader({ title, subtitle, back = true, trailing }: Props) {
+export function ScreenHeader({ title, subtitle, eyebrow, back = true, trailing }: Props) {
   const router = useRouter();
   return (
     <View style={styles.root}>
@@ -28,6 +30,11 @@ export function ScreenHeader({ title, subtitle, back = true, trailing }: Props) 
         />
       ) : null}
       <View style={styles.text}>
+        {eyebrow !== undefined ? (
+          <AppText variant="overline" color="primary">
+            {eyebrow}
+          </AppText>
+        ) : null}
         <AppText variant="title" accessibilityRole="header" numberOfLines={2}>
           {title}
         </AppText>

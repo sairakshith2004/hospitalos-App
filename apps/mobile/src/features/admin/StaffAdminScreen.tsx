@@ -12,12 +12,12 @@ import { StyleSheet, View } from 'react-native';
 import {
   AppText,
   Banner,
+  ChoiceChip,
   ListRow,
   PrimaryButton,
   QueryBoundary,
   ScreenContainer,
   ScreenHeader,
-  SecondaryButton,
   SectionHeader,
   StatusChip,
   SurfaceCard,
@@ -87,7 +87,7 @@ export function StaffAdminScreen() {
 
   return (
     <ScreenContainer>
-      <ScreenHeader title="Staff accounts" back />
+      <ScreenHeader title="Staff accounts" eyebrow="ADMINISTRATION" back />
       {message !== null ? (
         <Banner
           tone={message.tone}
@@ -173,9 +173,11 @@ export function StaffAdminScreen() {
               {ROLE_CODES.map((code) => {
                 const has = selected.roles.includes(code);
                 return (
-                  <SecondaryButton
+                  <ChoiceChip
                     key={code}
-                    label={`${has ? '✓ ' : '+ '}${ROLE_NAMES[code]}`}
+                    role="checkbox"
+                    label={ROLE_NAMES[code]}
+                    selected={has}
                     disabled={reason.trim().length < 3}
                     onPress={() =>
                       void role

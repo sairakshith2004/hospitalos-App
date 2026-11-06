@@ -2,10 +2,10 @@ import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import {
-  AppText,
-  Avatar,
+  GradientHeader,
   Icon,
   ListRow,
+  ProfileHeader,
   ScreenContainer,
   SectionHeader,
   StatusChip,
@@ -14,7 +14,7 @@ import {
 import { devToolsEnabled } from '@/features/dev/flags';
 import { primaryRole } from '@/features/session/session-role';
 import { useSignedInSession } from '@/features/session/SessionProvider';
-import { borders, colors, spacing } from '@/theme/tokens';
+import { borders, colors } from '@/theme/tokens';
 
 export function ProfileScreen() {
   const router = useRouter();
@@ -23,26 +23,25 @@ export function ProfileScreen() {
 
   return (
     <ScreenContainer bottomInset={false}>
-      <AppText variant="title" accessibilityRole="header">
-        Profile
-      </AppText>
-      <SurfaceCard>
-        <View style={styles.identity}>
-          <Avatar name={session.displayName} size="lg" />
-          <View style={styles.identityText}>
-            <AppText variant="headline">{session.displayName}</AppText>
-            <AppText variant="bodySmall" color="textMuted">
-              {roleTitle}
-            </AppText>
-            {session.kind === 'demo' ? (
-              <StatusChip label="DEMO SESSION" tone="warning" dot={false} />
-            ) : null}
-          </View>
-        </View>
-      </SurfaceCard>
+      <GradientHeader eyebrow="ACCOUNT" title="Profile" />
+      <ProfileHeader
+        name={session.displayName}
+        role={roleTitle}
+        detail={
+          session.kind === 'authenticated'
+            ? `Signed in as ${session.username}`
+            : 'Development demo workspace'
+        }
+      >
+        {session.kind === 'demo' ? (
+          <StatusChip label="DEMO SESSION" tone="warning" dot={false} />
+        ) : (
+          <StatusChip label="Signed in" tone="success" />
+        )}
+      </ProfileHeader>
 
       <SectionHeader title="Account" />
-      <SurfaceCard padding="none">
+      <SurfaceCard padding="none" enterIndex={1}>
         <ListRow
           title="Settings"
           leading={<Icon name="settings" color={colors.textSecondary} />}
@@ -74,7 +73,7 @@ export function ProfileScreen() {
           <View style={styles.divider}>
             <ListRow
               title="Change password"
-              leading={<Icon name="settings" color={colors.textSecondary} />}
+              leading={<Icon name="key" color={colors.textSecondary} />}
               onPress={() => router.push('/account/password')}
               accessibilityHint="Signs out your other devices"
             />
@@ -116,7 +115,5 @@ export function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  identity: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
-  identityText: { flex: 1, gap: spacing.xs },
   divider: { borderTopWidth: borders.hairline, borderTopColor: colors.border },
 });
