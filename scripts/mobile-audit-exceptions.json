@@ -1,5 +1,5 @@
 {
-  "note": "Known high-severity advisories in apps/mobile that cannot be fixed safely inside Expo SDK 57. Each entry is classified in docs/KNOWN-ISSUES.md (KI-12). An entry stops covering CI after its reviewBy date. Never add a critical advisory here.",
+  "note": "Known high-severity advisories that cannot be fixed safely yet, read by scripts/mobile-audit.mjs. Entries without a target apply to apps/mobile (classified in docs/KNOWN-ISSUES.md KI-12) and stop covering CI after their reviewBy date. Entries with target \"root\" apply to the root workspace only, cover one package along a verified development-only path, never cover production dependencies, and stop covering CI on their expires date (00:00 UTC). Never add a critical advisory here.",
   "exceptions": [
     {
       "advisory": "GHSA-qr28-fpjm-wq7f",
@@ -14,6 +14,40 @@
       "scope": "development (expo CLI, eslint-plugin-react-hooks); not in the app bundle",
       "reason": "zod 3.x has no fixed release. The Expo patch upgrade (KI-9) removes the expo CLI path; the ESLint plugin path remains until that plugin moves to zod 4.",
       "reviewBy": "2026-12-31"
+    },
+    {
+      "advisory": "GHSA-fc5q-39xc-vjpf",
+      "target": "root",
+      "package": "picomatch",
+      "severity": "high (CVSS 7.5), unchanged. Not fixed: no patched picomatch exists",
+      "scope": "Development, test and build tooling only. Absent from the production dependency tree (npm audit --omit=dev: 0 findings; npm ls --omit=dev: no picomatch), from apps/api/dist and apps/web/dist, and therefore from the Windows package, which ships only those builds",
+      "dependencyPaths": [
+        "vitest > picomatch",
+        "vitest > tinyglobby > picomatch",
+        "vitest > tinyglobby > fdir > picomatch",
+        "vitest > vite > picomatch",
+        "@hospitalos/web (devDependency) > vite > picomatch",
+        "typescript-eslint > @typescript-eslint/typescript-estree > tinyglobby > picomatch"
+      ],
+      "allowedDependents": [
+        "fdir",
+        "tinyglobby",
+        "vite",
+        "vitest",
+        "@typescript-eslint/typescript-estree",
+        "@typescript-eslint/utils",
+        "@typescript-eslint/parser",
+        "@typescript-eslint/type-utils",
+        "@typescript-eslint/eslint-plugin",
+        "typescript-eslint"
+      ],
+      "devOnly": true,
+      "reason": "The advisory covers every picomatch release up to 4.0.7 (the latest) and lists no patched version; npm's only offered fixes downgrade vitest to 3 and vite to 6 (breaking) and still leave the typescript-eslint path. Exploitation needs an attacker-chosen glob pattern. Only repository-authored patterns reach picomatch: Vite's built-in fs.deny list (not overridden), vitest include/exclude, tsconfig include and ESLint files; request paths are matched against those fixed patterns, never compiled as patterns. The Vite dev server binds to 127.0.0.1 only. Measured 2026-11-18: fixed patterns under 1 ms on 50,000-character hostile inputs; the advisory pattern +(*a) grows from 19 ms to 242 ms between 20 and 26 characters",
+      "approvedBy": "Product owner",
+      "approvedOn": "2026-11-18",
+      "expires": "2026-11-25",
+      "remediation": "Check the advisory (https://github.com/advisories/GHSA-fc5q-39xc-vjpf) and picomatch releases daily. When a fixed picomatch is published and is at least 14 days old (package-age policy), update it together with any of vite, vitest, tinyglobby or typescript-eslint that need it, confirm npm audit no longer reports GHSA-fc5q-39xc-vjpf, and delete this entry. If no fix can be applied by 2026-11-25, the gate fails until the owner explicitly reviews and renews this entry",
+      "tracking": "docs/KNOWN-ISSUES.md KI-26"
     }
   ]
 }

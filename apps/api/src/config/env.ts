@@ -88,6 +88,12 @@ const nameList = z
     'may only contain hospitalos_* database names',
   );
 
+/** An optional file or folder path; an empty value counts as unset. */
+const optionalPath = z
+  .string()
+  .optional()
+  .transform((value) => (value === undefined || value.trim() === '' ? undefined : value.trim()));
+
 const apiSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   HOST: z.string().min(1).default('127.0.0.1'),
@@ -127,7 +133,27 @@ const apiSchema = z.object({
     ),
   /** Express trust proxy. Off unless the API runs behind a known proxy (R9). */
   TRUST_PROXY: z.enum(['false', 'loopback']).default('false'),
+  /** Built web app (apps/web/dist) served at `/` from the API's own origin. Unset: API only. */
+  WEB_ROOT: optionalPath,
+  /** PEM certificate and private key for HTTPS. Both or neither. Unset: plain HTTP. */
+  TLS_CERT_FILE: optionalPath,
+  TLS_KEY_FILE: optionalPath,
+  /** Also append logs (same redaction) to this file. Unset: stdout only. */
+  LOG_FILE: optionalPath,
+  /**
+   * Loopback-only control listener (graceful stop for stop.bat). Unset: no control listener.
+   * The per-run token is written to CONTROL_TOKEN_FILE and removed on shutdown.
+   */
+  CONTROL_PORT: z.coerce.number().int().min(1).max(65535).optional(),
+  CONTROL_TOKEN_FILE: optionalPath,
 });
+
+/** Hosts that are only reachable from this computer. */
+export const LOOPBACK_HOSTS: readonly string[] = ['127.0.0.1', 'localhost', '::1'];
+
+/** Database names with a fixed purpose, checked against NODE_ENV. */
+export const PRODUCTION_DATABASE = 'hospitalos_prod';
+export const DEMO_DATABASE = 'hospitalos_demo';
 
 export type ApiConfig = z.infer<typeof apiSchema>;
 
@@ -185,6 +211,26 @@ export function loadConfig(raw: RawEnv): ApiConfig {
     if (config.DATABASE_ALLOWED_NAMES.includes('hospitalos_test')) {
       problems.push('DATABASE_ALLOWED_NAMES: the test database is not allowed in production');
     }
+    if (database !== PRODUCTION_DATABASE) {
+      problems.push(`DATABASE_URL: production must use ${PRODUCTION_DATABASE}`);
+    }
+    // Staff passwords, tokens and patient data must never cross the network in clear text.
+    if (!LOOPBACK_HOSTS.includes(config.HOST) && config.TLS_CERT_FILE === undefined) {
+      problems.push(
+        'TLS_CERT_FILE: production on a network address requires HTTPS (TLS_CERT_FILE and TLS_KEY_FILE)',
+      );
+    }
+  } else if (database === PRODUCTION_DATABASE) {
+    problems.push(`DATABASE_URL: ${PRODUCTION_DATABASE} may only be used with NODE_ENV=production`);
+  }
+  if ((config.TLS_CERT_FILE === undefined) !== (config.TLS_KEY_FILE === undefined)) {
+    problems.push('TLS_CERT_FILE / TLS_KEY_FILE: set both or neither');
+  }
+  if ((config.CONTROL_PORT === undefined) !== (config.CONTROL_TOKEN_FILE === undefined)) {
+    problems.push('CONTROL_PORT / CONTROL_TOKEN_FILE: set both or neither');
+  }
+  if (config.CONTROL_PORT !== undefined && config.CONTROL_PORT === config.PORT) {
+    problems.push('CONTROL_PORT: must differ from PORT');
   }
   if (problems.length > 0) {
     throw new ConfigError(`Invalid API configuration:\n${problems.join('\n')}`);
@@ -192,14 +238,25 @@ export function loadConfig(raw: RawEnv): ApiConfig {
   return config;
 }
 
-export type MigrationTarget = 'dev' | 'test';
+export const MIGRATION_TARGET_NAMES = ['dev', 'test', 'demo', 'prod'] as const;
+export type MigrationTarget = (typeof MIGRATION_TARGET_NAMES)[number];
 
-/** The database each migration target may touch, and the setting that holds its URL. */
+export function isMigrationTarget(value: string | undefined): value is MigrationTarget {
+  return MIGRATION_TARGET_NAMES.some((name) => name === value);
+}
+
+/**
+ * The database each migration target may touch, and the setting that holds its URL. One
+ * installation has one owner URL: a Windows demo PC points MIGRATION_DATABASE_URL at
+ * hospitalos_demo, a hospital server at hospitalos_prod.
+ */
 export const MIGRATION_TARGETS: Readonly<
   Record<MigrationTarget, { setting: SecretSetting; database: string }>
 > = {
   dev: { setting: 'MIGRATION_DATABASE_URL', database: 'hospitalos_dev' },
   test: { setting: 'TEST_MIGRATION_DATABASE_URL', database: 'hospitalos_test' },
+  demo: { setting: 'MIGRATION_DATABASE_URL', database: DEMO_DATABASE },
+  prod: { setting: 'MIGRATION_DATABASE_URL', database: PRODUCTION_DATABASE },
 };
 
 /** Loads the owner connection string for a migration target and checks it names that database. */

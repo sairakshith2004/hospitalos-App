@@ -1,11 +1,6 @@
 import { fileURLToPath } from 'node:url';
 
-import {
-  ConfigError,
-  MIGRATION_TARGETS,
-  loadMigrationUrl,
-  type MigrationTarget,
-} from '../config/env';
+import { ConfigError, MIGRATION_TARGETS, isMigrationTarget, loadMigrationUrl } from '../config/env';
 import { createLogger } from '../lib/logger';
 
 import { createPool } from './client';
@@ -13,18 +8,14 @@ import { verifyDatabaseIdentity } from './guards';
 import { loadMigrations, runMigrations } from './migrate';
 
 /**
- * `npm run db:migrate` (target dev) and `npm run db:migrate:test` (target test).
- * Connects as hos_owner, verifies the database identity, then applies pending migrations.
+ * `npm run db:migrate` (target dev), `npm run db:migrate:test` (target test), and the demo and
+ * prod targets used by Windows installations. Connects as hos_owner, verifies the database identity, then applies pending migrations.
  */
 const logger = createLogger('info');
 const target = process.argv[2];
 
-function isTarget(value: string | undefined): value is MigrationTarget {
-  return value === 'dev' || value === 'test';
-}
-
-if (!isTarget(target)) {
-  logger.error('usage: migrate-cli.ts dev|test');
+if (!isMigrationTarget(target)) {
+  logger.error('usage: migrate-cli dev|test|demo|prod');
   process.exit(2);
 }
 

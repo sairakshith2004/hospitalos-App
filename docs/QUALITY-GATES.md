@@ -16,7 +16,7 @@ when it was actually run; device, emulator, security and deployment results name
 | Expo | `npx expo-doctor`; `npx expo export --platform android` when dependencies or workspace layout change | — |
 | Secrets | — | `npm run secrets:check` |
 | Isolation | — | `npm run iso:check` when Docker configuration changes; reference project's containers, network and volume unchanged |
-| Dependencies | `npm audit --audit-level=high` | `npm audit --audit-level=high` |
+| Dependencies | `npm run audit` (root) and `npm run mobile:audit`: fail on any high or critical advisory not covered by an exception in force in `scripts/mobile-audit-exceptions.json`; the root gate also fails on any high or critical advisory in production dependencies (`npm audit --omit=dev`), with no exceptions | Same |
 | Whitespace | `git diff --check` | `git diff --check` |
 
 ## Approval gates (never run without explicit owner approval)
