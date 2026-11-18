@@ -10,7 +10,9 @@ import { verifyDatabaseIdentity } from './db/guards';
 import { loadMigrations } from './db/migrate';
 import { checkAccessCatalogue, checkDatabaseReadiness } from './db/readiness';
 import { createDatabase, one } from './db/sql';
-import { createLogger } from './lib/logger';
+import { createControlServer, CONTROL_HOST, writeControlToken } from './http/control';
+import { createListener } from './http/listen';
+import { createServerLogger } from './lib/logger';
 import { captureMailer, localSmtpMailer } from './mail/mailer';
 import { authenticate } from './middleware/authenticate';
 import { buildApi } from './modules/api';
@@ -31,7 +33,7 @@ try {
   process.exit(1);
 }
 
-const logger = createLogger(config.LOG_LEVEL);
+const logger = createServerLogger(config.LOG_LEVEL, config.LOG_FILE);
 const pool = createPool(config.DATABASE_URL, config.DATABASE_POOL_MAX, (error) => {
   // Only the PostgreSQL error code: messages can echo connection details.
   logger.warn({ pgErrorCode: error.code ?? 'unknown' }, 'idle database connection lost');
@@ -75,30 +77,91 @@ const mailer =
     ? captureMailer()
     : localSmtpMailer({ host: config.SMTP_HOST, port: config.SMTP_PORT, from: config.MAIL_FROM });
 
-const app = createApp({
-  logger,
-  checkReadiness: async () => {
-    await checkDatabaseReadiness(pool, expectations, expectedMigrations);
-    await checkAccessCatalogue(pool);
-  },
-  rateLimit: { windowMs: config.RATE_LIMIT_WINDOW_MS, max: config.RATE_LIMIT_MAX },
-  trustProxy: config.TRUST_PROXY === 'loopback' ? 'loopback' : false,
-  corsOrigins: config.CORS_ORIGINS,
-  api: {
-    modules: buildApi({ db, settings, mailer, resetCodePepper: config.RESET_CODE_PEPPER, logger }),
-    authenticate: authenticate(db, settings),
-  },
+const tls =
+  config.TLS_CERT_FILE !== undefined && config.TLS_KEY_FILE !== undefined
+    ? { certFile: config.TLS_CERT_FILE, keyFile: config.TLS_KEY_FILE }
+    : undefined;
+
+let app: ReturnType<typeof createApp>;
+try {
+  app = createApp({
+    logger,
+    checkReadiness: async () => {
+      await checkDatabaseReadiness(pool, expectations, expectedMigrations);
+      await checkAccessCatalogue(pool);
+    },
+    rateLimit: { windowMs: config.RATE_LIMIT_WINDOW_MS, max: config.RATE_LIMIT_MAX },
+    trustProxy: config.TRUST_PROXY === 'loopback' ? 'loopback' : false,
+    corsOrigins: config.CORS_ORIGINS,
+    ...(config.WEB_ROOT === undefined ? {} : { webRoot: config.WEB_ROOT }),
+    tls: tls !== undefined,
+    api: {
+      modules: buildApi({
+        db,
+        settings,
+        mailer,
+        resetCodePepper: config.RESET_CODE_PEPPER,
+        logger,
+      }),
+      authenticate: authenticate(db, settings),
+    },
+  });
+} catch (error) {
+  logger.fatal({ reason: error instanceof Error ? error.message : 'unknown' }, 'refusing to start');
+  await pool.end();
+  process.exit(1);
+}
+
+let server: ReturnType<typeof createListener>;
+try {
+  server = createListener(app, tls);
+} catch (error) {
+  logger.fatal({ reason: error instanceof Error ? error.message : 'unknown' }, 'refusing to start');
+  await pool.end();
+  process.exit(1);
+}
+server.on('error', (error: NodeJS.ErrnoException) => {
+  logger.fatal({ code: error.code ?? 'unknown' }, 'listener failed (is the port already in use?)');
+  process.exit(1);
+});
+server.listen(config.PORT, config.HOST, () => {
+  logger.info(
+    {
+      host: config.HOST,
+      port: config.PORT,
+      protocol: tls ? 'https' : 'http',
+      webApp: config.WEB_ROOT !== undefined,
+    },
+    'HospitalOS API listening',
+  );
 });
 
-const server = app.listen(config.PORT, config.HOST, () => {
-  logger.info({ host: config.HOST, port: config.PORT }, 'HospitalOS API listening');
-});
+// Loopback-only graceful stop for stop.bat (W2). A fresh token per run, removed on shutdown.
+let controlServer: ReturnType<typeof createControlServer> | undefined;
+let controlToken: ReturnType<typeof writeControlToken> | undefined;
+if (config.CONTROL_PORT !== undefined && config.CONTROL_TOKEN_FILE !== undefined) {
+  const controlPort = config.CONTROL_PORT;
+  controlToken = writeControlToken(config.CONTROL_TOKEN_FILE);
+  controlServer = createControlServer(controlToken.value, () => {
+    shutdown('control');
+  });
+  controlServer.on('error', (error: NodeJS.ErrnoException) => {
+    logger.fatal({ code: error.code ?? 'unknown' }, 'control listener failed');
+    controlToken?.remove();
+    process.exit(1);
+  });
+  controlServer.listen(controlPort, CONTROL_HOST, () => {
+    logger.info({ host: CONTROL_HOST, port: controlPort }, 'control listener ready');
+  });
+}
 
 let shuttingDown = false;
 function shutdown(signal: string): void {
   if (shuttingDown) return;
   shuttingDown = true;
   logger.info({ signal }, 'shutting down');
+  controlToken?.remove();
+  controlServer?.close();
   server.close(() => {
     void pool
       .end()
@@ -108,6 +171,8 @@ function shutdown(signal: string): void {
       })
       .catch(() => process.exit(1));
   });
+  // Keep-alive browser connections would otherwise hold close() open until they time out.
+  server.closeIdleConnections();
   setTimeout(() => process.exit(1), 10_000).unref();
 }
 

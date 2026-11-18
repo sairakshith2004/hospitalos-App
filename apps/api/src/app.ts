@@ -2,6 +2,7 @@ import express, { type Express, type RequestHandler } from 'express';
 import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
 
+import { webAppRouter } from './http/static';
 import type { Logger } from './lib/logger';
 import { withoutQuery } from './security/log-request';
 import { cors } from './middleware/cors';
@@ -21,6 +22,13 @@ export type AppDependencies = Readonly<{
   trustProxy?: boolean | string;
   /** Browser origins allowed by CORS; empty means none. */
   corsOrigins?: readonly string[];
+  /** Built web app served at `/` after every API route. Omitted: API only. */
+  webRoot?: string;
+  /**
+   * True when the listener is HTTPS. Over plain HTTP (loopback demo and development only) the CSP
+   * must not ask browsers to upgrade the page's own requests to an HTTPS port that doesn't exist.
+   */
+  tls?: boolean;
 }>;
 
 /** JSON bodies above this size are refused with 413. */
@@ -33,7 +41,7 @@ const DEFAULT_RATE_LIMIT: RateLimitOptions = { windowMs: 60_000, max: 300 };
 
 /**
  * Builds the Express app. Order matters: security headers → request ID and logging → rate limit
- * → body parsing → routes → 404 → error envelope.
+ * → body parsing → API routes → web app (optional) → 404 → error envelope.
  */
 export function createApp({
   logger,
@@ -42,13 +50,17 @@ export function createApp({
   api,
   trustProxy = false,
   corsOrigins = [],
+  webRoot,
+  tls = false,
 }: AppDependencies): Express {
   const app = express();
   app.disable('x-powered-by');
   // No proxy is trusted until a deployment needs it (R9).
   app.set('trust proxy', trustProxy);
 
-  app.use(helmet());
+  app.use(
+    helmet(tls ? {} : { contentSecurityPolicy: { directives: { upgradeInsecureRequests: null } } }),
+  );
   app.use(cors(corsOrigins));
   app.use(pinoHttp({ logger, genReqId: resolveRequestId, serializers: { req: withoutQuery } }));
   app.use(apiRateLimit(rateLimit));
@@ -63,6 +75,8 @@ export function createApp({
     app.use(v1, api.authenticate);
     for (const router of api.modules.protectedRouters) app.use(v1, router);
   }
+
+  if (webRoot !== undefined) app.use(webAppRouter(webRoot, API_PREFIX));
 
   app.use(notFound);
   app.use(errorHandler(logger));

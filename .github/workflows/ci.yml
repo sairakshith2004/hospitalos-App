@@ -48,10 +48,16 @@ jobs:
       - name: Prettier
         run: npm run format:check
 
-      - name: Unit and HTTP tests (contracts, API)
+      - name: Unit and HTTP tests (contracts, API, web)
         run: npm test
 
-      - name: Dependency audit (fails on high or critical)
+      - name: Production builds (web app and compiled server)
+        run: npm run build
+
+      # Fails on any high or critical advisory, and always on one in production dependencies.
+      # Development-only exceptions in scripts/mobile-audit-exceptions.json (target "root") are
+      # printed as warnings, limited to their verified dependency path, and expire automatically.
+      - name: Dependency audit (high/critical; production always enforced)
         run: npm run audit
 
       - name: Generate throwaway database credentials
@@ -83,6 +89,25 @@ jobs:
 
       - name: Database integration tests (hospitalos_test only)
         run: npm run test:db
+
+      - name: Smoke test the compiled server (web app from the same origin, graceful stop)
+        working-directory: apps/api
+        env:
+          CONTROL_PORT: '4101'
+          CONTROL_TOKEN_FILE: ${{ runner.temp }}/control.token
+        run: |
+          # Readiness requires the roles and permissions catalogue. CI only migrates
+          # hospitalos_dev, so seed its reference data (no demo accounts) with the compiled command.
+          node --env-file=../../.env dist/cli/seed.js dev
+          PORT=4100 WEB_ROOT="$PWD/../web/dist" node --env-file=../../.env dist/server.js &
+          server=$!
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:4100/api/ready && break; sleep 1; done
+          curl -sf http://127.0.0.1:4100/api/ready
+          curl -sf http://127.0.0.1:4100/reception/queue | grep -q '<div id="root">'
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:4100/api/v1/patients)" = 401
+          node dist/cli/stop-server.js
+          wait "$server"
+          test ! -e "$CONTROL_TOKEN_FILE"
 
       - name: Stop PostgreSQL
         if: always()

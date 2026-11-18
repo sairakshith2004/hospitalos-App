@@ -1,6 +1,7 @@
 import {
   ConfigError,
   MIGRATION_TARGETS,
+  isMigrationTarget,
   loadMigrationUrl,
   type MigrationTarget,
 } from '../config/env';
@@ -9,14 +10,15 @@ import { verifyDatabaseIdentity } from '../db/guards';
 import { createDatabase, type Db } from '../db/sql';
 
 /**
- * Operator commands connect as hos_owner to one named database (dev or test), after the same
- * identity guard as migrations. They never reach any other database.
+ * Operator commands connect as hos_owner to one named database (dev, test, demo or prod), after
+ * the same identity guard as migrations. They never reach any other database. Demo accounts stay
+ * refused outside development and test by seedDemoAccounts itself.
  */
 export async function openOwnerDatabase(
   target: string | undefined,
 ): Promise<{ db: Db; close: () => Promise<void>; target: MigrationTarget }> {
-  if (target !== 'dev' && target !== 'test') {
-    throw new ConfigError('usage: <command> dev|test');
+  if (!isMigrationTarget(target)) {
+    throw new ConfigError('usage: <command> dev|test|demo|prod');
   }
   const pool = createPool(loadMigrationUrl(target, process.env), 2);
   try {

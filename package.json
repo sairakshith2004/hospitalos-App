@@ -1,9 +1,10 @@
 {
   "name": "hospitalos-app",
   "private": true,
-  "description": "HospitalOS Mobile monorepo: independent API and shared contracts. The mobile app joins the workspace in phase 1.2.",
+  "description": "HospitalOS monorepo: independent API, browser app and shared contracts. The Expo mobile app keeps its own lockfile in apps/mobile.",
   "workspaces": [
     "apps/api",
+    "apps/web",
     "packages/*"
   ],
   "engines": {
@@ -11,8 +12,13 @@
   },
   "scripts": {
     "dev:api": "npm run dev -w @hospitalos/api",
+    "dev:web": "npm run dev -w @hospitalos/web",
     "start:api": "npm run start -w @hospitalos/api",
     "build:api": "npm run build -w @hospitalos/api",
+    "build:web": "npm run build -w @hospitalos/web",
+    "build": "npm run build:web && npm run build:api",
+    "start:dist": "npm run start:dist -w @hospitalos/api",
+    "stop:api": "npm run stop -w @hospitalos/api",
     "typecheck": "npm run typecheck --workspaces",
     "lint": "npm run lint --workspaces",
     "format": "prettier --write .",
@@ -35,7 +41,7 @@
     "db:migrate:test": "npm run db:migrate:test -w @hospitalos/api",
     "db:env:check": "npm run db:env:check -w @hospitalos/api",
     "secrets:check": "node scripts/secrets-check.mjs",
-    "audit": "npm audit --audit-level=high",
+    "audit": "node scripts/mobile-audit.mjs root",
     "mobile:check": "npm --prefix apps/mobile run check",
     "mobile:audit": "node scripts/mobile-audit.mjs",
     "check": "npm run secrets:check && npm run typecheck && npm run lint && npm run format:check && npm test"

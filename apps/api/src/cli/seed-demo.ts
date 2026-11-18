@@ -4,8 +4,14 @@ import { seedAccessModel, seedBaseDepartments } from '../seed/reference';
 
 import { fail, openOwnerDatabase } from './owner-db';
 
-/** `npm run db:seed:demo`: demo accounts (development and test only), printed once. */
+/**
+ * `npm run db:seed:demo`: demo accounts (development and test only), printed once. Never the
+ * production database, whatever NODE_ENV says.
+ */
 try {
+  if (process.argv[2] === 'prod') {
+    throw new Error('Demo data is never written to the production database. Nothing was changed.');
+  }
   const { db, close } = await openOwnerDatabase(process.argv[2]);
   try {
     await seedAccessModel(db);

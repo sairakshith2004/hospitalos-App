@@ -5,13 +5,19 @@ outpatient hospital: Expo + React Native + TypeScript app, its own Express 5 API
 PostgreSQL 17 database. All 11 roles and all 88 reference permissions, delivered in releases R1 to
 R9 ([roadmap](docs/MOBILE-IMPLEMENTATION-ROADMAP.md)).
 
-**Status (6 November 2026):** Release 1 (outpatient operations) is built and verified on the API,
-the database and the web preview, and the app has a new premium design. Release 1 is **not signed
+**Status (18 November 2026):** Release 1 (outpatient operations) is built and verified on the API,
+the database and the web preview, merged to `main` (PR #6) with CI green. Release 1 is **not signed
 off yet**: Android emulator and phone testing still have to be done.
+
+**Windows-first delivery (approved 18 November 2026):** a central Windows server with browser
+clients on the hospital network, shipped as a ZIP. Phase W1 (server readiness: compiled server,
+same-origin web app, HTTPS listener, graceful stop) is on branch
+`feat/windows-w1-server-readiness`, verified on macOS only and awaiting review. **Not yet tested on
+Windows.** See [Windows architecture](docs/WINDOWS-ARCHITECTURE.md).
 
 ## Today's updates (6 November 2026)
 
-Two pieces of work, both waiting for review (not committed yet).
+Two pieces of work, since committed and merged to `main` (PR #6).
 
 ### 1. Release 1 final validation (R1.13)
 
@@ -58,7 +64,6 @@ Two pieces of work, both waiting for review (not committed yet).
 
 - **Android testing** on an emulator and a physical phone (no Android SDK on the development Mac).
   This is the remaining gate for Release 1 sign-off.
-- **Commit and push** of today's work (waiting for owner review); GitHub CI shows red until then.
 - Trend charts need a history API (not built); haptics need an approved new package; invoice
   discounts and tax are not in Release 1.
 - The Expo patch update (fixes one development-tool advisory) is scheduled for 19 November under the
@@ -66,16 +71,17 @@ Two pieces of work, both waiting for review (not committed yet).
 
 ## Project timeline (from the beginning)
 
-| Date    | Work                                                                                                                                                      | Result                  |
-| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| 5 Nov   | Project set up as design-first; product boundaries and planning documents                                                                                 | PR #1 merged            |
-| 5 Nov   | Glassmorphism dashboard design foundation                                                                                                                 | PR #1                   |
-| 5 Nov   | Expo app bootstrap: design system, navigation shell, splash, onboarding, sign-in screens                                                                  | PR #2 merged            |
-| 5 Nov   | Phase 1.0: 11 roles and 88 permissions aligned with the reference; five-tab navigation; Inbox placeholder                                                 | PR #3 merged            |
-| 5–6 Nov | Phase 1.1: independent backend (Express 5, PostgreSQL 17, Drizzle), isolated Docker database, migrations, readiness checks, CI, secret scanning           | Merged to `main`        |
-| 6 Nov   | Release 1 outpatient operations: authentication, patients, scheduling, consultations, nursing, pharmacy, laboratory, billing, follow-ups, live dashboards | PR #5 merged            |
-| 6 Nov   | R1.13 validation: end-to-end run, CI fix, security, billing and logging fixes                                                                             | Uncommitted, for review |
-| 6 Nov   | Premium UI redesign of every screen and all 11 dashboards                                                                                                 | Uncommitted, for review |
+| Date    | Work                                                                                                                                                      | Result             |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| 5 Nov   | Project set up as design-first; product boundaries and planning documents                                                                                 | PR #1 merged       |
+| 5 Nov   | Glassmorphism dashboard design foundation                                                                                                                 | PR #1              |
+| 5 Nov   | Expo app bootstrap: design system, navigation shell, splash, onboarding, sign-in screens                                                                  | PR #2 merged       |
+| 5 Nov   | Phase 1.0: 11 roles and 88 permissions aligned with the reference; five-tab navigation; Inbox placeholder                                                 | PR #3 merged       |
+| 5–6 Nov | Phase 1.1: independent backend (Express 5, PostgreSQL 17, Drizzle), isolated Docker database, migrations, readiness checks, CI, secret scanning           | Merged to `main`   |
+| 6 Nov   | Release 1 outpatient operations: authentication, patients, scheduling, consultations, nursing, pharmacy, laboratory, billing, follow-ups, live dashboards | PR #5 merged       |
+| 6 Nov   | R1.13 validation: end-to-end run, CI fix, security, billing and logging fixes                                                                             | PR #6 merged       |
+| 6 Nov   | Premium UI redesign of every screen and all 11 dashboards                                                                                                 | PR #6 merged       |
+| 18 Nov  | Windows-first architecture approved; phase W1 server readiness and `apps/web` shell                                                                       | Branch, for review |
 
 ## Features (Release 1)
 
@@ -146,6 +152,7 @@ Development sign-in uses the synthetic demo accounts created by `npm run db:seed
 ```text
 apps/
   mobile/          Expo app (own lockfile; reads the shared contracts from source)
+  web/             Browser app for hospital workstations: React, TypeScript, Vite (served by the API)
   api/             Independent API: Express 5, Zod, Drizzle, PostgreSQL 17
 packages/
   contracts/       The one shared package: roles, 88 permissions, API schemas, error codes
@@ -155,8 +162,8 @@ docs/              Planning documents, decisions, build log, quality gates, know
 docker-compose.yml Local PostgreSQL (project "hospitalos-mobile", 127.0.0.1:5433)
 ```
 
-The root npm workspace contains `apps/api` and `packages/*` only, so the Expo app is unaffected
-(decision AD-M-011).
+The root npm workspace contains `apps/api`, `apps/web` and `packages/*`; the Expo app keeps its own
+lockfile and is unaffected (decision AD-M-011).
 
 ## Local development
 

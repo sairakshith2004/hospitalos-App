@@ -1,0 +1,26 @@
+{
+  "name": "@hospitalos/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "HospitalOS browser app for hospital workstations (React, TypeScript, Vite). Served by the API from the same origin.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit -p . && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit -p .",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hospitalos/contracts": "*",
+    "react": "19.2.9",
+    "react-dom": "19.2.9"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "csstype": "3.2.3",
+    "vite": "8.3.5"
+  }
+}
