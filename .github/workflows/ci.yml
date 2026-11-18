@@ -96,6 +96,9 @@ jobs:
           CONTROL_PORT: '4101'
           CONTROL_TOKEN_FILE: ${{ runner.temp }}/control.token
         run: |
+          # Readiness requires the roles and permissions catalogue. CI only migrates
+          # hospitalos_dev, so seed its reference data (no demo accounts) with the compiled command.
+          node --env-file=../../.env dist/cli/seed.js dev
           PORT=4100 WEB_ROOT="$PWD/../web/dist" node --env-file=../../.env dist/server.js &
           server=$!
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:4100/api/ready && break; sleep 1; done

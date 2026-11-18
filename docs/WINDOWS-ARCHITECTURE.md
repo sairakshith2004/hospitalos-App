@@ -61,6 +61,10 @@ npm run stop:api         # graceful stop through the control listener
 
 `stop:api` exit codes: 0 stop accepted, 1 not configured or refused, 3 server not running.
 
+A fresh database must be migrated **and seeded with reference data** (`node dist/cli/seed.js <target>`:
+roles, permissions, departments; never demo accounts) before `/api/ready` answers 200, because
+readiness checks the permission catalogue against `packages/contracts`. W2's setup runs both steps.
+
 Planned (W2): `run.bat` starts PostgreSQL (`pg_ctl`), applies migrations as `hos_owner`, starts the
 server as `hos_app`, waits for `/api/ready` and opens the browser. `stop.bat` calls the control
 listener, waits for the process to exit, then runs `pg_ctl stop -m fast`.
